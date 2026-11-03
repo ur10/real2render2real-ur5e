@@ -1,0 +1,58 @@
+diff --git a/src/hamer_helper/_hamer_helper.py b/src/hamer_helper/_hamer_helper.py
+index 2e36503..1fbc35d 100644
+--- a/src/hamer_helper/_hamer_helper.py
++++ b/src/hamer_helper/_hamer_helper.py
+@@ -90,11 +90,14 @@ class HamerHelper:
+     def __init__(self) -> None:
+         import hamer
+         from hamer.models import DEFAULT_CHECKPOINT, load_hamer
+-        from vitpose_model import ViTPoseModel
+ 
+         # HaMeR hardcodes a bunch of relative paths...
+         # Instead of modifying HaMeR we're going to hack this by temporarily changing our working directory :)
+         hamer_directory = Path(hamer.__file__).parent.parent
++        # vitpose_model.py lives at the HaMeR repo root (README "Common Issues" fix).
++        import sys
++        sys.path.insert(0, str(hamer_directory.absolute()))
++        from vitpose_model import ViTPoseModel
+ 
+         with temporary_cwd_context(hamer_directory):
+             # Download and load checkpoints
+@@ -116,17 +119,26 @@ class HamerHelper:
+             from hamer.utils.utils_detectron2 import DefaultPredictor_Lazy
+ 
+             with _stopwatch("Creating Detectron2 predictor..."):
+-                cfg_path = (
+-                    Path(hamer.__file__).parent
+-                    / "configs"
+-                    / "cascade_mask_rcnn_vitdet_h_75ep.py"
+-                )
+-                detectron2_cfg = LazyConfig.load(str(cfg_path))
+-                detectron2_cfg.train.init_checkpoint = "https://dl.fbaipublicfiles.com/detectron2/ViTDet/COCO/cascade_mask_rcnn_vitdet_h/f328730692/model_final_f05665.pkl"  # type: ignore
+-                for i in range(3):
+-                    detectron2_cfg.model.roi_heads.box_predictors[  # type: ignore
+-                        i
+-                    ].test_score_thresh = 0.25
++                import os
++                if os.environ.get("HAMER_BODY_DETECTOR", "vitdet") == "regnety":
++                    # Lighter person detector, as in HaMeR's demo.py (--body_detector regnety).
++                    # ViTDet-H doesn't fit next to the tracker on a 12 GB GPU.
++                    from detectron2 import model_zoo
++                    detectron2_cfg = model_zoo.get_config("new_baselines/mask_rcnn_regnety_4gf_dds_FPN_400ep_LSJ.py", trained=True)
++                    detectron2_cfg.model.roi_heads.box_predictor.test_score_thresh = 0.5  # type: ignore
++                    detectron2_cfg.model.roi_heads.box_predictor.test_nms_thresh = 0.4  # type: ignore
++                else:
++                    cfg_path = (
++                        Path(hamer.__file__).parent
++                        / "configs"
++                        / "cascade_mask_rcnn_vitdet_h_75ep.py"
++                    )
++                    detectron2_cfg = LazyConfig.load(str(cfg_path))
++                    detectron2_cfg.train.init_checkpoint = "https://dl.fbaipublicfiles.com/detectron2/ViTDet/COCO/cascade_mask_rcnn_vitdet_h/f328730692/model_final_f05665.pkl"  # type: ignore
++                    for i in range(3):
++                        detectron2_cfg.model.roi_heads.box_predictors[  # type: ignore
++                            i
++                        ].test_score_thresh = 0.25
+                 detector = DefaultPredictor_Lazy(detectron2_cfg)
+ 
+             # keypoint detector

@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+/real2render2real/
+output_data/

@@ -1,0 +1,142 @@
+diff --git a/rsrd/motion/motion_optimizer.py b/rsrd/motion/motion_optimizer.py
+index a57f47b..06e3dd4 100644
+--- a/rsrd/motion/motion_optimizer.py
++++ b/rsrd/motion/motion_optimizer.py
+@@ -59,6 +59,8 @@ class RigidGroupOptimizerConfig:
+ 
+     approx_dist_to_obj: float = 0.45  # in meters
+     altitude_down: float = 0.1 #np.pi / 6  # in radians
++    init_pixel_frac: Optional[Tuple[float, float]] = None  # (row, col) / frame size; overrides DINO localization
++    metric_depth_weight: float = 1.0  # scales the metric-depth L2 loss (in squared scan units) against DINO
+ 
+ class RigidGroupOptimizer:
+     dig_model: DiGModel
+@@ -238,7 +240,13 @@ class RigidGroupOptimizer:
+         est_dist_to_obj = self.config.approx_dist_to_obj * self.dataset_scale  # scale to nerfstudio world.
+ 
+         xs, ys, est_loc_2d = self._find_object_pixel_location(first_obs)
+-        
++        if self.config.init_pixel_frac is not None:
++            # Known object location (e.g. from calibrated depth): DINO matching can latch onto
++            # nearby look-alike regions when the object is small in the frame.
++            h, w = first_obs.frame.camera.height.item(), first_obs.frame.camera.width.item()
++            r, c = self.config.init_pixel_frac
++            est_loc_2d = torch.tensor([[r * h, c * w]], device=est_loc_2d.device).repeat(est_loc_2d.shape[0], 1)
++
+         # TODO: Remove debug plot when done devel
+         import matplotlib.pyplot as plt
+         plt.imshow(first_obs.frame.rgb.cpu().numpy())
+@@ -555,6 +563,8 @@ class RigidGroupOptimizer:
+         loss = loss + dino_loss
+         if use_depth:
+             depth_loss = self._get_depth_loss(outputs, frame, object_mask)
++            if frame.has_metric_depth:
++                depth_loss = self.config.metric_depth_weight * depth_loss
+             loss = loss + depth_loss
+         if use_rgb:
+             rgb_loss = 0.05 * (outputs["rgb"] - frame.rgb).abs().mean()
+@@ -632,10 +642,15 @@ class RigidGroupOptimizer:
+             if frame.hand_mask is not None:
+                 valids = valids & frame.hand_mask.unsqueeze(-1)
+ 
+-            pix_loss = (physical_depth - frame.monodepth) ** 2
++            # Fill invalid (NaN) depth before subtracting: masking afterwards still back-propagates
++            # 0 * NaN = NaN into the pose gradient.
++            measured = torch.where(frame.monodepth.isnan(), physical_depth.detach(), frame.monodepth)
++            pix_loss = (physical_depth - measured) ** 2
+             pix_loss = pix_loss[
+                 valids & (pix_loss < self.config.depth_ignore_threshold**2)
+             ]
++            if pix_loss.numel() == 0:  # mean of nothing is NaN, which poisons the pose
++                return physical_depth.new_zeros(1)
+             return pix_loss.mean()
+ 
+         # Otherwise, we're using disparity.
+@@ -663,7 +678,8 @@ class RigidGroupOptimizer:
+             rank_loss = depth_ranking_loss(rend_samples, mono_samples)
+             return self.config.rank_loss_mult*rank_loss
+ 
+-        return torch.Tensor([0.0])
++        # No valid pixels (e.g. small object fully covered by the hand): zero loss on the right device.
++        return outputs["depth"].new_zeros(1)
+ 
+     def apply_to_model(self, obj_delta, part_deltas):
+         """
+diff --git a/scripts/run_tracker.py b/scripts/run_tracker.py
+index 0e60971..9371a33 100644
+--- a/scripts/run_tracker.py
++++ b/scripts/run_tracker.py
+@@ -3,7 +3,7 @@ Script for running the tracker.
+ """
+ 
+ import json
+-from typing import Optional, cast, Literal
++from typing import Optional, Tuple, cast, Literal
+ import time
+ from pathlib import Path
+ from threading import Lock
+@@ -63,6 +63,16 @@ def main(
+     camera_intr_type: CameraIntr = IPhoneIntr(),
+     save_hand: bool = True,
+     plot_hands: bool = False, # Currently buggy for multi-rigid obj? Or maybe hand detection is suboptimal
++    # In scan (COLMAP) units, which RSRD assumes are metres (true for LiDAR/Polycam scans).
++    # For a non-metric scan pass metres / scan_metres_per_unit.
++    approx_dist_to_obj: float = 0.45,
++    depth_ignore_threshold: float = 0.1,
++    # Optional (row, col) of the object in the first frame, as fractions of the frame size.
++    init_pixel_frac: Optional[Tuple[float, float]] = None,
++    # Optional (T, H, W) .npy of metric depth per video frame, in scan units (NaN = invalid),
++    # aligned to the video frames. Enables RSRD's metric depth loss instead of monodepth.
++    metric_depth_path: Optional[Path] = None,
++    metric_depth_weight: float = 1.0,
+     ):
+     """Track objects in video using RSRD.
+ 
+@@ -123,6 +133,10 @@ def main(
+     # Initialize tracker.
+     wp.init()  # Must be called before any other warp API call.
+     optimizer_config = RigidGroupOptimizerConfig(
++        approx_dist_to_obj=approx_dist_to_obj,
++        depth_ignore_threshold=depth_ignore_threshold,
++        init_pixel_frac=init_pixel_frac,
++        metric_depth_weight=metric_depth_weight,
+         atap_config=ATAPConfig(
+             loss_alpha=(1.0 if is_obj_jointed else 0.1),
+         )
+@@ -147,6 +161,7 @@ def main(
+             frame_opt_path,
+             track_data_path,
+             save_hand,
++            metric_depth=None if metric_depth_path is None else np.load(metric_depth_path),
+         )
+ 
+     optimizer.load_tracks(track_data_path)
+@@ -349,13 +364,18 @@ def track_and_save_motion(
+     frame_opt_path: Path,
+     track_data_path: Path,
+     save_hand: bool = False,
++    metric_depth: Optional[np.ndarray] = None,
+ ):
+     """Get part poses for each frame in the video, ad save the keyframes to a file."""
++    def depth_at(i):
++        # (H, W): PosedObservation._get_depth adds/removes the channel dim itself.
++        return None if metric_depth is None else metric_depth[i].astype(np.float32)
++
+     camera = get_ns_camera_at_origin(camera_type)
+     num_frames = int(motion_clip.get(cv2.CAP_PROP_FRAME_COUNT))
+ 
+     rgb = get_vid_frame(motion_clip, frame_idx=0)
+-    obs = optimizer.create_observation_from_rgb_and_camera(rgb, camera)
++    obs = optimizer.create_observation_from_rgb_and_camera(rgb, camera, metric_depth=depth_at(0))
+ 
+     # Initialize.
+     optimizer.set_track_path(track_data_path)
+@@ -378,7 +398,7 @@ def track_and_save_motion(
+             num_frames = frame_id
+             break
+ 
+-        obs = optimizer.create_observation_from_rgb_and_camera(rgb, camera)
++        obs = optimizer.create_observation_from_rgb_and_camera(rgb, camera, metric_depth=depth_at(frame_id))
+         optimizer.add_observation(obs)
+         optimizer.fit([frame_id], 50)
+         # if num_frames > 100:

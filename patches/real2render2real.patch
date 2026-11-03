@@ -1,0 +1,44 @@
+diff --git a/real2render2real/isaaclab_viser/base.py b/real2render2real/isaaclab_viser/base.py
+index ef5efa0..267055e 100644
+--- a/real2render2real/isaaclab_viser/base.py
++++ b/real2render2real/isaaclab_viser/base.py
+@@ -138,7 +138,7 @@ class IsaacLabViser:
+         default_joint_pos_dict = {self.scene.articulations['robot'].joint_names[i]: self.scene.articulations['robot'].data.default_joint_pos[0][i].item() for i in range(len(self.scene.articulations['robot'].data.default_joint_pos[0]))} 
+         self.urdf_vis['robot'].update_cfg(default_joint_pos_dict)
+         
+-        self.camera_manager = CameraManager(self.viser_server, self.scene)
++        self.camera_manager = CameraManager(self.viser_server, self.scene, getattr(self, "camera_poses_file", None))
+         self.use_viewport = len(self.camera_manager.frustums) == 0
+     
+     def _setup_viser_gui(self):
+diff --git a/real2render2real/isaaclab_viser/camera_manager.py b/real2render2real/isaaclab_viser/camera_manager.py
+index 7923f99..361612c 100644
+--- a/real2render2real/isaaclab_viser/camera_manager.py
++++ b/real2render2real/isaaclab_viser/camera_manager.py
+@@ -8,13 +8,13 @@ from viser.transforms import SO3
+ from isaaclab.sensors import MultiTiledCameraCfg
+ 
+ class CameraManager:
+-    def __init__(self, viser_server, scene):
++    def __init__(self, viser_server, scene, camera_poses_file=None):
+         self.viser_server = viser_server
+         self.scene = scene
+         dir_path = os.path.dirname(os.path.realpath(__file__))
+         self.camera_pose_dir = os.path.join(dir_path, "../../data/camera_poses")
+         # TODO: set this to the camera poses file you desire
+-        self.camera_poses_file = os.path.join(self.camera_pose_dir, "camera_poses_calib_031425.h5")
++        self.camera_poses_file = camera_poses_file or os.path.join(self.camera_pose_dir, "camera_poses_calib_031425.h5")
+         # self.camera_poses_file = os.path.join(self.camera_pose_dir, "franka_droid_extr3_.h5")
+         print(f"[INFO]: Camera poses file: {self.camera_poses_file}")
+         self.used_ids = set()
+@@ -136,7 +136,9 @@ class CameraManager:
+             wxyz=wxyz,
+             scale=0.02,
+         )
+-        
++        if not hasattr(frustum, "name"):  # viser 0.2.x handles (pinned by nerfstudio) have no .name
++            frustum.name = f"/camera_{camera_id}"
++
+         # Add click callback
+         frustum.on_click(self.create_click_handler(frustum))
+ 
