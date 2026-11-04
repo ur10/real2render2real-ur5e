@@ -94,6 +94,7 @@ python scripts/ur_cube/make_triptych.py --rollout <replay rollout> \
 python scripts/ur_cube/make_rollout_grid.py --successes output_data/ur5e_randomized/successes \
     --output outputs/ur_cube/media/randomized.mp4
 python scripts/ur_cube/make_viser_recording.py --rollout <replay rollout> --output-dir outputs/ur_cube/review
+python scripts/ur_cube/make_splat_orbit.py --output outputs/ur_cube/media/splat_orbit.mp4  # splat orbit + RealSense wipe
 ```
 
 Tested on Ubuntu 22.04, driver 580, Isaac Sim 4.5 / IsaacLab, RTX 3080 Ti (12 GB). One GPU job per
