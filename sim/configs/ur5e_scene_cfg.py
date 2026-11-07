@@ -98,7 +98,9 @@ class UR5eCubePnPCfg(UR5eBaseCfg):
     cube = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/cube",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{data_dir}/ur_cube/usd/cube_mesh.usd",
+            # Not instanceable: with the instanceable conversion (data/ur_cube/usd/) the renders of
+            # envs >= 1 kept the cube at its spawn pose while physics moved it.
+            usd_path=f"{data_dir}/ur_cube/usd_noinst/cube_mesh.usd",
             # Mean colour of the SuGaR texture (vertex colours don't survive the USD import).
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.125, 0.11, 0.082), roughness=0.5),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True, disable_gravity=True),
@@ -106,3 +108,31 @@ class UR5eCubePnPCfg(UR5eBaseCfg):
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(*LAYOUT["fixtures"][1]["center_xy"], TABLE_Z + FIXTURE_HEIGHT + CUBE_SIZE / 2)),
     )
+
+
+@configclass
+class UR5eCubePnPObstacleCfg(UR5eCubePnPCfg):
+    """Cube pick-and-place with one inserted obstacle per env: a plain cylinder (below) or, with
+    `obstacle_spawn_from_asset`, a scanned object such as data/obstacles/sauce_bottle.
+
+    Visual only (no rigid body, no collider): the simulator moves each env's copy at reset by
+    setting its USD transform, and clearance comes from the planner (scripts/ur_cube/demo_repair.py),
+    whose collision proxy must match the size set here. A kinematic rigid body was tried first, but
+    writing its pose through PhysX left later kinematic writes of envs >= 1 out of the renders.
+    """
+
+    obstacle = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/Obstacle",
+        spawn=sim_utils.CylinderCfg(
+            radius=0.035,
+            height=0.26,
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.30, 0.47, 0.66), roughness=0.35),
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=(0.1, -0.76, TABLE_Z + 0.13)),
+    )
+
+
+def obstacle_spawn_from_asset(meta_file: str) -> sim_utils.UsdFileCfg:
+    """Spawn config for a prepared obstacle (scripts/ur_cube/prep_gso_obstacle.py writes the json)."""
+    meta = json.load(open(meta_file))
+    return sim_utils.UsdFileCfg(usd_path=os.path.join(os.path.dirname(os.path.abspath(meta_file)), meta["usd"]))

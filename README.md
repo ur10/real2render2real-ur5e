@@ -20,6 +20,7 @@ same frame, and the UR5e replay rendered in IsaacLab from the same calibrated ca
 | **Track** | The cube's pose per frame from both depth cameras: the scanned cube model fitted with ICP, re-detected on fast lifts, kept consistent across the cube's 24 symmetric orientations. | Box overlay stays on the cube in the camera that was not used for tracking |
 | **Embody** | UR5e + Robotiq 2F-85 URDF in the calibrated base frame, gripper mount fitted against the real images. | Simulated cameras and robot line up with the real ones |
 | **Render** | IsaacLab kinematic replay: IK follows a grasp on the tracked cube; start pose jitter + trajectory interpolation, randomized lighting, camera and table appearance; a feasibility filter rejects IK error, joint-limit violations and finger–fixture contact. | 12 / 12 randomized rollouts pass |
+| **Repair** | Insert an object the demo never saw (a scanned bottle), check the generated motion against it and re-optimize only the free segments; the grasp, lift-off, set-down and release stay as generated. | 21 bottle placements on the route: 5 valid demos with the filter alone, 17 with repair |
 
 ![Randomized rollouts generated from the one demonstration](docs/randomized.jpg)
 
@@ -31,10 +32,54 @@ even after the fixes in `patches/` (metric depth loss, calibrated first-frame po
 With two calibrated RGB-D cameras the motion is easier to recover geometrically, so
 `pipeline/track_cube_rgbd.py` replaces it. The second camera validates the track independently.
 
+## Obstacles and demo repair
+
+![Plain generator carries the cube through the bottle; the repaired motion lifts over it](docs/repair_compare.jpg)
+
+*Same scene and grasp. Left: the warped demo carries the cube through the bottle (outlined red
+while in collision; the bottle is visual-only, so the arm passes through it in the render). Right:
+the repaired motion clears it by 2.7 cm.*
+
+Warping the demonstrated path only works in the scene it was recorded in. `pipeline/demo_repair.py`
+checks a generated motion against inserted obstacles and repairs it:
+
+- **Collision model.** Spheres over the UR5e links, the 2F-85, the wrist-camera bracket and the held
+  cube, against the table plane, the fixtures and the inserted objects (vertical cylinders or boxes).
+- **What is kept.** The straight descent to the grasp, closing, lift-off and set-down near the
+  fixtures, release and the retreat are pinned to the generated poses. Only the transit to the
+  pre-grasp and the middle of the carry are re-optimized.
+- **Solve.** One joint-space trajectory optimization (jaxls Levenberg-Marquardt): stay close to the
+  generated joints, smooth velocity and acceleration, a collision hinge, pinned poses, tool upright
+  while carrying, joint and per-joint velocity limits. It runs from the generated motion and from
+  versions bent over and around the obstacle. A candidate is accepted only if a denser re-check
+  keeps at least 5 mm from the obstacle, and the cube's four symmetric grasp yaws are tried
+  before a rollout is rejected.
+- **Outcomes.** Valid as generated, repaired, or rejected because the obstacle blocks a pinned
+  segment. The held cube's poses are recomputed from the repaired arm motion, so the rendered
+  observations stay consistent.
+
+Sweep over 45 bottle placements along and across the cube's route (24 overlap a fixture and are
+skipped; `pipeline/sweep_repair.py`, `pipeline/plot_sweep_map.py`):
+
+| Outcome | Placements |
+|---|---|
+| Already collision-free | 5 |
+| Repaired | 11 |
+| Repaired after switching to another grasp yaw | 1 |
+| Rejected: the bottle blocks the grasp descent or the set-down | 4 |
+| Repair failed | 0 |
+
+Repaired paths keep at least 1.5 cm from the bottle (median 2.7 cm); the largest gripper detour from
+the warped path has a median of 6.4 cm (max 9.9 cm).
+
+The demo track is also cleaned up before planning: while the cube sits on the place fixture the
+tracked pose tilts it by up to 23°, and during the carry it spins 80°, which under the cube's 90°
+symmetry is the same as −10°. The planner levels the cube and uses the smallest equivalent yaw.
+
 ## Repository layout
 
 ```
-pipeline/   bench calibration, scan alignment, cube tracking, robot model, media (→ scripts/ur_cube/)
+pipeline/   bench calibration, scan alignment, cube tracking, robot model, demo repair, media (→ scripts/ur_cube/)
 sim/        UR5e cube pick-and-place simulator, scene and robot configs, run script
 patches/    fixes to upstream Real2Render2Real, RSRD, DiG and hamer_helper
 assets/     small bench files: calibrated cameras, scene layout, tracked trajectory, cube mesh, skybox
@@ -81,8 +126,9 @@ python scripts/ur_cube/track_cube_rgbd.py --init-traj outputs/ur_cube/traj_ep0_f
 python scripts/ur_cube/build_ur5e_robotiq_urdf.py
 python dependencies/IsaacLab/scripts/tools/convert_urdf.py data/ur5e_robotiq/ur5e_robotiq85.urdf \
     data/ur5e_robotiq/usd/ur5e_robotiq85.usd --fix-base --headless
+# not instanceable: with an instanceable cube the renders of envs >= 1 keep the cube at its spawn pose
 python dependencies/IsaacLab/scripts/tools/convert_mesh.py data/ur_cube/cube_mesh.obj \
-    data/ur_cube/usd/cube_mesh.usd --make-instanceable --collision-approximation none --mass 1.0 --headless
+    data/ur_cube/usd_noinst/cube_mesh.usd --collision-approximation none --mass 1.0 --headless
 
 # 4. Generate demonstrations (RGB from both cameras + joint data per rollout)
 OMNI_KIT_ACCEPT_EULA=YES launchers/generate.sh . output_data/ur5e_randomized 2 6
@@ -95,6 +141,19 @@ python scripts/ur_cube/make_rollout_grid.py --successes output_data/ur5e_randomi
     --output outputs/ur_cube/media/randomized.mp4
 python scripts/ur_cube/make_viser_recording.py --rollout <replay rollout> --output-dir outputs/ur_cube/review
 python scripts/ur_cube/make_splat_orbit.py --output outputs/ur_cube/media/splat_orbit.mp4  # splat orbit + RealSense wipe
+
+# 6. Obstacle + demo repair
+python scripts/ur_cube/prep_gso_obstacle.py              # fetch the scanned bottle, fit its collision cylinder
+python dependencies/IsaacLab/scripts/tools/convert_mesh.py data/obstacles/sauce_bottle/model.obj \
+    data/obstacles/sauce_bottle/usd/model.usd --collision-approximation none --headless
+python scripts/ur_cube/sweep_repair.py && python scripts/ur_cube/plot_sweep_map.py   # offline sweep
+TRAJ=outputs/ur_cube/traj_ep0_f1_to_f0_rgbd.json
+python scripts/run_ur5e_cube.py --traj $TRAJ --obstacle --output-dir output_data/ur5e_bottle             # repaired
+python scripts/run_ur5e_cube.py --traj $TRAJ --obstacle --no-repair --output-dir output_data/ur5e_bottle_reject
+python scripts/run_ur5e_cube.py --traj $TRAJ --obstacle --obstacle-xy 0.096 -0.763 --compare --no-augment \
+    --num-envs 2 --max-episodes 1 --output-dir output_data/ur5e_repair_compare
+python scripts/ur_cube/make_repair_compare.py --run output_data/ur5e_repair_compare \
+    --output outputs/ur_cube/media/repair_compare.mp4
 ```
 
 Tested on Ubuntu 22.04, driver 580, Isaac Sim 4.5 / IsaacLab, RTX 3080 Ti (12 GB). One GPU job per
@@ -109,7 +168,10 @@ generated data.
 ## Acknowledgements
 
 Built on Real2Render2Real by Justin Yu, Letian Fu, Huang Huang, Karim El-Refai, Rares Andrei Ambrus,
-Richard Cheng, Muhammad Zubair Irshad and Ken Goldberg, and on RSRD, DiG, trajgen and IsaacLab.
+Richard Cheng, Muhammad Zubair Irshad and Ken Goldberg, and on RSRD, DiG, trajgen, IsaacLab, jaxmp
+and jaxls. The obstacle bottle is the Google Scanned Objects model
+`Weston_No_33_Signature_Sausage_Tonic_12_fl_oz` (CC-BY 4.0, Google LLC), downloaded by
+`pipeline/prep_gso_obstacle.py` and not redistributed here.
 
 ```bibtex
 @misc{yu2025real2render2realscalingrobotdata,

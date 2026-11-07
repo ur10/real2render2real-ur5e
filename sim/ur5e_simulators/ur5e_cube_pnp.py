@@ -9,9 +9,17 @@ of RSRD's scan-unit part deltas. Per reset it:
   * renders the two RealSense views, logs joints / flange pose / gripper command,
   * keeps an env only if it passes a feasibility filter (IK error, joint limits, finger clearance
     over table and fixtures, cube not sinking into the table).
+
+With `obstacle=...` each env also gets an obstacle (a scanned bottle or a cylinder) on the transfer route, and the
+motion comes from scripts/ur_cube/demo_repair.py instead of per-step IK: the generated motion is
+checked against the obstacle and, with `repair=True`, its free segments (transit and the carry
+between lift-off and set-down) are re-optimized while the grasp, lift-off, set-down and retreat stay
+as generated. With `repair=False` colliding envs are rejected (the plain generator's behaviour).
+Per-env outcomes go to <output_dir>/plans.jsonl.
 """
 
 import json
+import sys
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -72,8 +80,14 @@ def along_tool_z(dz: float, n: int, device) -> tf.SE3:
 class UR5eCubePnP(IsaacLabViser):
     def __init__(self, *args, traj_path: Path, max_successes: int = 1000, max_episodes: int = None,
                  start_xy_noise: float = 0.03, start_yaw_noise: float = onp.radians(30),
-                 wait_for_client: bool = False, randomize_look: bool = True, **kwargs):
+                 wait_for_client: bool = False, randomize_look: bool = True,
+                 obstacle: dict | None = None, repair: bool = True, **kwargs):
         self.randomize_look = randomize_look
+        # obstacle: dict(radius, height, origin, fraction=(lo, hi), lateral=(lo, hi)), see
+        # _sample_obstacles; radius/height are the planner's collision cylinder. Figure options:
+        # xy=(x, y) fixes the placement; compare=True makes env 0 replay the plain generator's motion
+        # (through the obstacle, kept unfiltered) next to the repaired motion in the other envs.
+        self.obstacle_cfg, self.repair = obstacle, repair
         self.camera_poses_file = UR_CAMERA_POSES_FILE
         self.wait_for_client = wait_for_client
         self.max_successes, self.max_episodes, self.episodes = max_successes, max_episodes, 0
@@ -84,6 +98,7 @@ class UR5eCubePnP(IsaacLabViser):
         self.demo_traj = onp.asarray(data["T_base_obj"], dtype=onp.float64)  # (T, wxyz_xyz), metres
         self.grasp_obj_tcp = torch.tensor(data["grasp_T_obj_tcp"], dtype=torch.float32, device=self.device)
         self.gripper_close = float(data.get("gripper_close", 0.45))
+        self.planner, self.traj_path = None, Path(traj_path)
         self.phases = PnPPhases()
         self.phases.finalize(len(self.demo_traj))
         self.run_simulator()
@@ -112,13 +127,24 @@ class UR5eCubePnP(IsaacLabViser):
             target_names=["robotiq_85_base_link-tcp"], home_pose=onp.array(UR5E_HOME),
         )
 
+        if self.obstacle_cfg is not None:
+            # Built here, next to the IK controller, so JAX initialises at the same point as before.
+            sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts/ur_cube"))
+            from demo_repair import DemoRepair, Phases
+            ph = PnPPhases()
+            self.planner = DemoRepair(demo_file=self.traj_path, phases=Phases(
+                approach=ph.approach, close=ph.close, release=ph.release, retreat=ph.retreat,
+                approach_height=ph.approach_height))
+            # Warp the cleaned-up track (levelled, minimal yaw; see demo_repair) instead of the raw one.
+            self.demo_traj = self.planner.demo_obj
+
         count, self.success_envs = 0, None
         dt = self.sim.get_physics_dt()
         while self.simulation_app.is_running() and self.data_logger_successes() < self.max_successes:
             t0 = time.time()
             if count % self.phases.total == 0:
                 if self.max_episodes is not None and self.episodes >= self.max_episodes:
-                    self._handle_reset()  # flush the last episode's success/failure
+                    self._handle_reset(final=True)  # flush the last episode's success/failure
                     break
                 self._handle_reset()
                 self.episodes += 1
@@ -137,7 +163,7 @@ class UR5eCubePnP(IsaacLabViser):
         return 0 if self.data_logger is None else int(self.data_logger._total_successful_envs)
 
     # ------------------------------------------------------------------ reset / augmentation
-    def _handle_reset(self):
+    def _handle_reset(self, final: bool = False):
         if self.success_envs is not None:
             print(f"[INFO]: Episode {self.episodes}: success envs {self.success_envs.cpu().numpy().astype(int).tolist()}, "
                   f"failures by reason {self.fail_reasons}", flush=True)
@@ -175,11 +201,88 @@ class UR5eCubePnP(IsaacLabViser):
         # Cube is 90-degree symmetric about z: pick the grasp yaw closest to the home wrist.
         self.grasp = self._choose_grasp_yaw(self.trajs[:, 0])
         self.start_tcp = self._tcp_pose_b()
+        # final=True: flushing before exit, no episode follows (skip planning one)
+        self.plan = self._plan_with_obstacles() if self.planner is not None and not final else None
         self.randomize_lighting()
         self.randomize_viewaug()
         self.randomize_appearance()
         self.success_envs = torch.ones(n, dtype=torch.bool, device=self.device)
         self.fail_reasons = {}
+        if self.plan is not None:
+            for e, st in enumerate(self.plan["status"]):
+                if not bool(self.plan["ok"][e]):
+                    self._fail(torch.arange(n, device=self.device) == e, st)
+
+    # ------------------------------------------------------------------ obstacle + planned motion
+    def _sample_obstacles(self) -> onp.ndarray:
+        """Per env (x, y): uniform along the env's own cube route and across it, away from fixtures."""
+        c = self.obstacle_cfg
+        if c.get("xy") is not None:  # fixed placement (figures)
+            return onp.tile(onp.asarray(c["xy"], dtype=onp.float64), (self.scene.num_envs, 1))
+        fx = onp.array([[*f["center_xy"]] for f in LAYOUT["fixtures"]])
+        out = []
+        for e in range(self.scene.num_envs):
+            t = self.trajs[e].cpu().numpy()
+            p0, p1 = t[0, 4:6], t[-1, 4:6]
+            d = (p1 - p0) / onp.linalg.norm(p1 - p0)
+            for _ in range(50):
+                xy = p0 + onp.random.uniform(*c["fraction"]) * (p1 - p0) + onp.random.uniform(*c["lateral"]) * onp.array([-d[1], d[0]])
+                if (onp.linalg.norm(fx - xy, axis=1) - FIXTURE_RADIUS - c["radius"] > 0.01).all():
+                    break
+            out.append(xy)
+        return onp.array(out)
+
+    def _place_obstacles(self, xy: onp.ndarray, height: float, origin: str = "center"):
+        """Move each env's (visual-only) obstacle prim; positions are env-local. `origin` is where the
+        prim's frame sits on the object: "center" (cylinder primitive) or "base" (scanned mesh)."""
+        from pxr import Gf
+        stage = self.sim.stage
+        for e in range(self.scene.num_envs):
+            prim = stage.GetPrimAtPath(f"/World/envs/env_{e}/Obstacle")
+            attr = prim.GetAttribute("xformOp:translate")
+            vec = Gf.Vec3d if "d" in str(attr.GetTypeName()) else Gf.Vec3f
+            attr.Set(vec(float(xy[e, 0]), float(xy[e, 1]), float(TABLE_Z + (height / 2 if origin == "center" else 0.0))))
+
+    def _plan_with_obstacles(self) -> dict:
+        from demo_repair import World
+        c = self.obstacle_cfg
+        xy = self._sample_obstacles()
+        self._place_obstacles(xy, c["height"], c.get("origin", "center"))
+
+        base = World.from_layout(LAYOUT)
+        qs, objs, tcps, ok, status, log = [], [], [], [], [], []
+        for e in range(self.scene.num_envs):
+            world = base.with_cylinder(float(xy[e, 0]), float(xy[e, 1]), c["radius"], c["height"])
+            if c.get("compare") and e > 0:  # same scene in every env: plan once
+                pass
+            else:
+                out = self.planner.run(world, obj_traj=self.trajs[e].cpu().numpy().astype(onp.float64), repair=self.repair)
+            good = out["q"] is not None
+            q = out["q"] if good else out["q_baseline"]  # failed envs still move (and are dropped)
+            nom = out["nominal"]
+            if c.get("compare") and e == 0:  # figure mode: env 0 shows the plain generator's motion
+                q, nom, good = out["q_baseline"], out["nominal_baseline"], True
+            qs.append(q)
+            objs.append(self.planner.objects_from_q(q, nom))
+            tcps.append(onp.asarray(self.planner.fk_tcp(q).wxyz_xyz))
+            ok.append(good)
+            status.append(out["status"])
+            shown = "generator" if c.get("compare") and e == 0 else "planned"
+            chk = out["before"] if shown == "generator" else out.get("after")
+            log.append(dict(episode=self.episodes, env=e, obstacle_xy=xy[e].tolist(), status=out["status"], shown=shown,
+                            obstacle_clearance_per_step=None if chk is None else onp.round(onp.asarray(chk["obstacle_clearance_per_step"]), 4).tolist(),
+                            generator_ok=bool(out["before"]["ok"]), seed=out.get("seed"),
+                            grasp_yaw_k=int(nom["grasp_yaw_k"]), time_s=round(out["time_s"], 2),
+                            baseline_min_clearance=out["before"]["min_obstacle_clearance"],
+                            min_clearance=out["after"]["min_obstacle_clearance"] if out.get("after") else None))
+        if self.output_dir is not None:
+            Path(self.output_dir).mkdir(parents=True, exist_ok=True)
+            with open(Path(self.output_dir) / "plans.jsonl", "a") as f:
+                for r in log:
+                    f.write(json.dumps(r) + "\n")
+        print("[INFO]: plans:", [r["status"] for r in log], flush=True)
+        T = lambda a: torch.tensor(onp.stack(a), dtype=torch.float32, device=self.device)  # noqa: E731
+        return dict(q=T(qs), obj=T(objs), tcp=T(tcps), ok=torch.tensor(ok, device=self.device), status=status)
 
     def _choose_grasp_yaw(self, obj0: torch.Tensor) -> tf.SE3:
         n = obj0.shape[0]
@@ -237,6 +340,8 @@ class UR5eCubePnP(IsaacLabViser):
         return ROBOTIQ_OPEN
 
     def _step_world(self, count: int, name: str, s: float, dt: float):
+        if self.plan is not None:
+            return self._step_world_planned(count, name, dt)
         obj = self._obj_pose(name, s)
         self._obj_now = obj
         state = torch.zeros_like(self.cube.data.root_state_w)
@@ -261,8 +366,32 @@ class UR5eCubePnP(IsaacLabViser):
         self.scene.update(dt)
         self.phase_name = name
 
+    def _step_world_planned(self, count: int, name: str, dt: float):
+        """Replay the planned joints; the cube follows the gripper while held."""
+        i = max(count - self.phases.bounds["approach"][0], 0)
+        obj = self.plan["obj"][:, i]
+        self._obj_now = obj
+        state = torch.zeros_like(self.cube.data.root_state_w)
+        state[:, :3] = obj[:, 4:] + self.scene.env_origins
+        state[:, 3:7] = obj[:, :4]
+        self.cube.write_root_state_to_sim(state)
+        self.tcp_target = tf.SE3(self.plan["tcp"][:, i])
+        q = self.robot.data.joint_pos.clone()
+        q[:, self.arm_ids] = self.plan["q"][:, i]
+        self.gripper_cmd = self._gripper_q(name, self.phases.phase(count)[1])
+        q[:, self.gripper_ids] = self.gripper_cmd * self.gripper_mult
+        self.robot.write_joint_state_to_sim(q, torch.zeros_like(q))
+        self.robot.set_joint_position_target(q)
+        self.scene.write_data_to_sim()
+        self.sim.step(render=False)
+        self.scene.update(dt)
+        self.phase_name = name
+
     # ------------------------------------------------------------------ feasibility filter
     def _fail(self, mask: torch.Tensor, reason: str):
+        if self.obstacle_cfg is not None and self.obstacle_cfg.get("compare"):
+            mask = mask.clone()
+            mask[0] = False  # figure mode: keep the plain generator's (colliding) motion for display
         if mask.any():
             self.fail_reasons[reason] = self.fail_reasons.get(reason, 0) + int((mask & self.success_envs).sum())
             self.success_envs &= ~mask
