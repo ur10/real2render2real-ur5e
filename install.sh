@@ -40,12 +40,13 @@ apply_patch "$R2R/dependencies/rsrd/dependencies/hamer_helper" hamer_helper.patc
 
 echo "Copying pipeline, simulator and assets"
 V="$R2R/real2render2real/isaaclab_viser"
-mkdir -p "$R2R/scripts/ur_cube" "$V/ur5e_simulators"
+mkdir -p "$R2R/scripts/ur_cube" "$R2R/scripts/ur_tape" "$V/ur5e_simulators"
 cp "$HERE"/pipeline/*.py "$HERE"/pipeline/*.sh "$R2R/scripts/ur_cube/"
-cp "$HERE/sim/run_ur5e_cube.py" "$HERE/sim/eval_ur5e_cube_policy.py" "$R2R/scripts/"
+cp "$HERE"/pipeline_rgb/*.py "$R2R/scripts/ur_tape/"
+cp "$HERE/sim/run_ur5e_cube.py" "$HERE/sim/eval_ur5e_cube_policy.py" "$HERE/sim/run_ur5e_tape.py" "$R2R/scripts/"
 cp "$HERE"/sim/ur5e_simulators/*.py "$V/ur5e_simulators/"
 cp "$HERE/sim/configs/ur5e_robotiq_cfg.py" "$V/configs/articulation_configs/"
-cp "$HERE/sim/configs/ur5e_scene_cfg.py" "$V/configs/scene_configs/"
+cp "$HERE/sim/configs/ur5e_scene_cfg.py" "$HERE/sim/configs/ur5e_tape_scene_cfg.py" "$V/configs/scene_configs/"
 cp -r "$HERE/assets/data/." "$R2R/data/"
 mkdir -p "$R2R/outputs" && cp -r "$HERE/assets/outputs/." "$R2R/outputs/"
 

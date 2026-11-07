@@ -139,11 +139,56 @@ track every TCP target to under 0.01 mm. `pipeline/make_embodiment_viser.py` wri
 replays. The UR10e and Panda are not yet rendered through the Isaac camera pipeline or used for
 training.
 
+## Two more tasks from colour video only
+
+![Tape roll: human demo, two-view RGB track, rendered UR5e replay](docs/tape_triptych.jpg)
+![Nut: human demo, two-view RGB track, rendered UR5e replay](docs/nut_triptych.jpg)
+
+Hanging a roll of tape on a mug tree and putting a nut on a bolt, each from one human demo
+recorded by the same two RealSense cameras, but as colour video only (no depth, no camera
+metadata). The cameras had not moved since the RGB-D capture (static points match to about 1 px),
+so their calibration is reused (`assets/outputs/ur_tape/realsense_calib.json`). Code in
+`pipeline_rgb/`.
+
+- **Measured shapes instead of scans.** Each object is a simple shape whose size is fitted to its
+  colour outline in both views: the tape roll is a 51.4 mm-radius band on a 41.3 mm core, 24 mm wide
+  (`fit_tape_dims.py`); the nut a 32 mm ring with a 21 mm hole, 16 mm thick (`fit_ring_dims.py`).
+  The mug tree and the bolt stand are measured from points and outlines in both views
+  (`measure_mug_tree.py`, `measure_bolt_stand.py`).
+- **Two-view silhouette tracking.** Per frame, the shape's z-buffered outline is fitted to the
+  object's colour mask in both views at once, ignoring hand pixels and same-coloured scenery
+  (`track_tape_rgb.py`), with re-detection from triangulated colour blobs after fast moves. While
+  the hand hid the nut from the right camera for about 1.3 s, the front view alone carries the track:
+  positions on its rays, depth interpolated between the two-view poses at either end
+  (`bridge_one_view.py`).
+- **Demo clean-up**, as for the cube: rest poses levelled; the roll tilted the shorter way (82 deg
+  instead of 98 deg) using its end-for-end symmetry; the nut centred on the rod (tracked 1.4 mm off,
+  2.9 mm of hole clearance) and lowered onto it from above the tip (`clean_tape_track.py`,
+  `clean_nut_track.py`).
+- **Planning** (`tape_plan.py`): the grasp pinches the tape band from the roll's top face, or the
+  nut across its outside, at 12 positions around the rim; each is planned with whole-sequence IK
+  and checked with the sphere model against the bench and the fixture; the cheapest valid one is kept.
+- **What did not carry over.** As recorded, the hang is not reachable for the UR5e: the branch the
+  human used points away from the robot, and the roll was pushed to 1.9 cm from the post, which
+  leaves no room for the gripper. `sweep_tree_yaw.py` shows it becomes plannable when the tree is
+  turned 230-270 deg about its post, so the twin's tree is turned 250 deg, and the demo is
+  released once the roll is 4.5 cm onto the branch. The nut's human start is 0.93 m from the base,
+  beyond reach, so generated starts are moved 14 cm closer.
+
+| Task | Generated rollouts that pass |
+|---|---|
+| Cube between fixtures (RGB-D) | 448 / 448 |
+| Tape roll onto the mug tree | 25 / 48 (rejected: fingertips reach the bench as the roll tips up) |
+| Nut onto the bolt | 48 / 48 |
+
+The tape and nut rollouts are not yet used to train policies.
+
 ## Repository layout
 
 ```
 pipeline/   bench calibration, scan alignment, cube tracking, robot models, demo repair, policy
             training and the policy experiment, media (→ scripts/ur_cube/)
+pipeline_rgb/ the RGB-only tasks: measured shapes, two-view tracking, clean-up, planning (→ scripts/ur_tape/)
 sim/        UR5e cube pick-and-place simulator, closed-loop policy evaluator, scene and robot
             configs, run scripts
 patches/    fixes to upstream Real2Render2Real, RSRD, DiG and hamer_helper
@@ -241,6 +286,23 @@ python scripts/ur_cube/build_panda_urdf.py
 python scripts/ur_cube/retarget_embodiment.py
 uv run --no-project --with viser==0.2.23 --with yourdfpy --with pycollada --with tyro \
     python scripts/ur_cube/make_embodiment_viser.py
+
+# 10. The RGB-only tasks (videos in $UR_RGB_VIDEOS, default ~/Downloads/ur_human_capture/videos)
+python scripts/ur_tape/fit_tape_dims.py && python scripts/ur_tape/measure_mug_tree.py
+python scripts/ur_tape/track_tape_rgb.py --episode 1 --output outputs/ur_tape/traj_ep1_hang.json
+python scripts/ur_tape/clean_tape_track.py
+python scripts/ur_tape/sweep_tree_yaw.py                     # which tree turns make the hang plannable
+python scripts/ur_tape/fit_ring_dims.py --frames 4:0 4:465 --inits " -0.136,-0.92,-0.012,0,0,1" "0.086,-0.638,0.172,0,0,1" \
+    --output outputs/ur_nut/nut_dims.json && python scripts/ur_tape/measure_bolt_stand.py
+python scripts/ur_tape/track_tape_rgb.py --episode 4 --colour green --ignore-static --roi-r 0.06 --obj-name nut \
+    --dims-file outputs/ur_nut/nut_dims.json --output outputs/ur_nut/traj_ep4_place.json
+python scripts/ur_tape/bridge_one_view.py --track outputs/ur_nut/traj_ep4_place.json --episode 4 --gap 183 226 \
+    --output outputs/ur_nut/traj_ep4_place.json && python scripts/ur_tape/clean_nut_track.py
+python scripts/ur_tape/build_tape_assets.py                  # meshes; convert to USD as in its docstring
+scripts/ur_cube/isaac_run.sh outputs/ur_tape/logs/gen.log "^\[INFO\]: Episode 12:" scripts/run_ur5e_tape.py --task tape \
+    --traj outputs/ur_tape/traj_ep1_hang_clean.json --tree-yaw 240 260 --max-episodes 12 --output-dir output_data/tape/r2r2r
+scripts/ur_cube/isaac_run.sh outputs/ur_nut/logs/gen.log "^\[INFO\]: Episode 12:" scripts/run_ur5e_tape.py --task nut \
+    --traj outputs/ur_nut/traj_ep4_place_clean.json --start-offset 0.08 0.12 --max-episodes 12 --output-dir output_data/nut/r2r2r
 ```
 
 Tested on Ubuntu 22.04, driver 580, Isaac Sim 4.5 / IsaacLab, RTX 3080 Ti (12 GB). One GPU job per

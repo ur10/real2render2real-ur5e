@@ -1,0 +1,54 @@
+{
+ "table_z": -0.020060718556759893,
+ "bolt_stand": {
+  "xy": [
+   0.0857,
+   -0.6381
+  ],
+  "block": {
+   "size": [
+    0.104,
+    0.104,
+    0.0453
+   ],
+   "yaw": -1.42,
+   "z0": -0.020060718556759893,
+   "z1": 0.0252
+  },
+  "base": {
+   "radius": 0.0223,
+   "z0": 0.0252,
+   "z1": 0.0457
+  },
+  "spacers": {
+   "radius": 0.018,
+   "z0": 0.0457,
+   "z1": 0.0943,
+   "fit_iou": 0.814
+  },
+  "rod": {
+   "radius": 0.0078,
+   "z0": 0.0943,
+   "z1": 0.1801,
+   "collision_z1": 0.1593,
+   "collision_note": "above the placed nut bottom the rod is inside the nut hole, between the fingers"
+  },
+  "reproj_px": [
+   1.56,
+   0.82
+  ]
+ },
+ "target": {
+  "centre": [
+   0.08708213327241769,
+   -0.6387368684449783,
+   0.1681587678112938
+  ],
+  "axis": [
+   0.046515757949810055,
+   0.07293529717203295,
+   0.9962513371076507
+  ]
+ },
+ "source": "hand-picked points + green silhouette fit, front and right RealSense views, RGB-only capture ep 4"
+}

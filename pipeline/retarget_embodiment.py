@@ -78,7 +78,15 @@ class Arm:
 
     def solve(self, targets_world: jaxlie.SE3, smooth: float = 0.3) -> jnp.ndarray:
         tgt = (self.base.inverse() @ targets_world).wxyz_xyz
-        n, JV, kin, home = tgt.shape[0], self.JV, self.kin, self.home
+        n = tgt.shape[0]
+        key = (n, smooth)
+        if key not in getattr(self, "_jit", {}):  # compile once per sequence length
+            self._jit = getattr(self, "_jit", {})
+            self._jit[key] = self._make_solver(n, smooth)
+        return self._jit[key](tgt, jnp.broadcast_to(self.home, (n, self.dof)))
+
+    def _make_solver(self, n: int, smooth: float):
+        JV, kin, home = self.JV, self.kin, self.home
 
         def pose_res(v, x, t):
             r = (jaxlie.SE3(kin.forward_kinematics(v[x])[..., self.tcp_idx, :]).inverse() @ t).log()
@@ -95,7 +103,7 @@ class Arm:
                               trust_region=jaxls.TrustRegionConfig(lambda_initial=1.0),
                               termination=jaxls.TerminationConfig(max_iterations=300), verbose=False)
             return sol[JV]
-        return run(tgt, jnp.broadcast_to(home, (n, self.dof)))
+        return run
 
 
 def nominal(obj_traj: onp.ndarray, grasp: jaxlie.SE3, home_tcp: jaxlie.SE3, ph: Phases = Phases()) -> dict:

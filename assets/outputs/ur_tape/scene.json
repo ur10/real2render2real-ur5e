@@ -1,0 +1,116 @@
+{
+ "table_z": -0.020060718556759893,
+ "mug_tree": {
+  "post": {
+   "xy": [
+    0.1607,
+    -0.6882
+   ],
+   "z0": -0.020060718556759893,
+   "z1": 0.31495066850429776,
+   "radius": 0.0094,
+   "reproj_px": [
+    0.94,
+    1.19
+   ]
+  },
+  "base": {
+   "xy": [
+    0.1607,
+    -0.6882
+   ],
+   "radius": 0.0797,
+   "thickness": 0.0112,
+   "extent_residual_px": 17.0
+  },
+  "branches": {
+   "A": {
+    "root": [
+     0.163,
+     -0.6841,
+     0.294
+    ],
+    "tip": [
+     0.1954,
+     -0.6258,
+     0.3171
+    ],
+    "radius": 0.0038,
+    "length": 0.0705,
+    "elevation_deg": 19.1,
+    "azimuth_deg": 60.9,
+    "tip_reproj_px": 0.14
+   },
+   "B": {
+    "root": [
+     0.1591,
+     -0.6926,
+     0.283
+    ],
+    "tip": [
+     0.1351,
+     -0.7606,
+     0.3185
+    ],
+    "radius": 0.0038,
+    "length": 0.0804,
+    "elevation_deg": 26.2,
+    "azimuth_deg": -109.5,
+    "tip_reproj_px": 2.09
+   },
+   "C": {
+    "root": [
+     0.1648,
+     -0.6904,
+     0.188
+    ],
+    "tip": [
+     0.2293,
+     -0.7261,
+     0.2254
+    ],
+    "radius": 0.0038,
+    "length": 0.0827,
+    "elevation_deg": 26.9,
+    "azimuth_deg": -28.9,
+    "tip_reproj_px": 0.17
+   },
+   "D": {
+    "root": [
+     0.1562,
+     -0.6869,
+     0.193
+    ],
+    "tip": [
+     0.0933,
+     -0.6694,
+     0.2249
+    ],
+    "radius": 0.0038,
+    "length": 0.0727,
+    "elevation_deg": 26.1,
+    "azimuth_deg": 164.5,
+    "tip_reproj_px": 0.61
+   },
+   "E": {
+    "root": [
+     0.1629,
+     -0.684,
+     0.118
+    ],
+    "tip": [
+     0.1911,
+     -0.6314,
+     0.1285
+    ],
+    "radius": 0.0038,
+    "length": 0.0606,
+    "elevation_deg": 10.0,
+    "azimuth_deg": 61.8,
+    "tip_reproj_px": 0.21
+   }
+  },
+  "target_branch": "B"
+ },
+ "source": "hand-picked points in the front and right RealSense views, RGB-only capture ep 1 frame 0"
+}

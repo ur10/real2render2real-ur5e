@@ -1,0 +1,1300 @@
+[
+ {
+  "tree_yaw_deg": 200.0,
+  "branch_azimuth_deg": 90.5,
+  "best": "finger_clearance",
+  "n_grasps_ok": 0,
+  "best_azimuth": 119.99999999999999,
+  "tree_clearance": -0.0168,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 3.4,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0288,
+    "joint_path": 54.496
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 1.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0389,
+    "joint_path": 66.175
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.7,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.038,
+    "joint_path": 54.37
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.6,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0362,
+    "joint_path": 42.088
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.7,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0168,
+    "joint_path": 41.25
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.4,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0004,
+    "joint_path": 72.788
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 1.4,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0065,
+    "joint_path": 60.342
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 1.2,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0115,
+    "joint_path": 70.399
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ik_error",
+    "ik_err_mm": 63.8,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0146,
+    "joint_path": 49.154
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ik_error",
+    "ik_err_mm": 45.6,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0156,
+    "joint_path": 55.563
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "joint_limit",
+    "ik_err_mm": 2.0,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0142,
+    "joint_path": 47.319
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "joint_limit",
+    "ik_err_mm": 4.8,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0107,
+    "joint_path": 49.354
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 210.0,
+  "branch_azimuth_deg": 100.5,
+  "best": "ik_error",
+  "n_grasps_ok": 0,
+  "best_azimuth": 180.0,
+  "tree_clearance": 0.0039,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "ik_error",
+    "ik_err_mm": 13304.7,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0373,
+    "joint_path": 561.221
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "ik_error",
+    "ik_err_mm": 13270.0,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.04,
+    "joint_path": 571.36
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "ik_error",
+    "ik_err_mm": 13559.3,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0302,
+    "joint_path": 509.207
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "ik_error",
+    "ik_err_mm": 13361.0,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0117,
+    "joint_path": 535.254
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "ik_error",
+    "ik_err_mm": 13369.7,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": 0.0139,
+    "joint_path": 394.802
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "ik_error",
+    "ik_err_mm": 13426.3,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0039,
+    "joint_path": 116.639
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "ik_error",
+    "ik_err_mm": 13374.8,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0039,
+    "joint_path": 52.922
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "ik_error",
+    "ik_err_mm": 13357.4,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0057,
+    "joint_path": 109.866
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ik_error",
+    "ik_err_mm": 13445.8,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0008,
+    "joint_path": 88.034
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ik_error",
+    "ik_err_mm": 13423.4,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0014,
+    "joint_path": 83.506
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ik_error",
+    "ik_err_mm": 13263.6,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0063,
+    "joint_path": 151.878
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ik_error",
+    "ik_err_mm": 13246.2,
+    "ik_phase": "carry",
+    "tree_phase": "close",
+    "tree_clearance": -0.0166,
+    "joint_path": 136.179
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 220.0,
+  "branch_azimuth_deg": 110.5,
+  "best": "ik_error",
+  "n_grasps_ok": 0,
+  "best_azimuth": 330.0,
+  "tree_clearance": -0.0083,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "ik_error",
+    "ik_err_mm": 281.4,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0319,
+    "joint_path": 36.699
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "ik_error",
+    "ik_err_mm": 266.6,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0392,
+    "joint_path": 33.976
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "ik_error",
+    "ik_err_mm": 245.9,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0386,
+    "joint_path": 33.196
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "ik_error",
+    "ik_err_mm": 229.4,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0347,
+    "joint_path": 33.129
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "ik_error",
+    "ik_err_mm": 220.3,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0254,
+    "joint_path": 41.923
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "ik_error",
+    "ik_err_mm": 218.8,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.031,
+    "joint_path": 51.956
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "ik_error",
+    "ik_err_mm": 230.1,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.021,
+    "joint_path": 45.082
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "ik_error",
+    "ik_err_mm": 244.2,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0248,
+    "joint_path": 36.158
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ik_error",
+    "ik_err_mm": 264.1,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0096,
+    "joint_path": 35.055
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ik_error",
+    "ik_err_mm": 280.5,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0075,
+    "joint_path": 34.056
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ik_error",
+    "ik_err_mm": 290.1,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0074,
+    "joint_path": 32.852
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ik_error",
+    "ik_err_mm": 290.4,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0083,
+    "joint_path": 31.758
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 230.0,
+  "branch_azimuth_deg": 120.5,
+  "best": "ok",
+  "n_grasps_ok": 3,
+  "best_azimuth": 330.0,
+  "tree_clearance": 0.0107,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 1.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0288,
+    "joint_path": 41.55
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 1.2,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0381,
+    "joint_path": 39.183
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 1.5,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0419,
+    "joint_path": 38.458
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 1.7,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0313,
+    "joint_path": 45.931
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 1.4,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0077,
+    "joint_path": 41.468
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 1.8,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0017,
+    "joint_path": 62.763
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 1.4,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0033,
+    "joint_path": 35.153
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 1.2,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0083,
+    "joint_path": 35.946
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "table_collision",
+    "ik_err_mm": 1.1,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0146,
+    "joint_path": 36.32
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ok",
+    "ik_err_mm": 1.0,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0156,
+    "joint_path": 36.759
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ok",
+    "ik_err_mm": 1.9,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0142,
+    "joint_path": 36.363
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ok",
+    "ik_err_mm": 1.8,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0107,
+    "joint_path": 36.022
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 240.0,
+  "branch_azimuth_deg": 130.5,
+  "best": "ok",
+  "n_grasps_ok": 4,
+  "best_azimuth": 239.99999999999997,
+  "tree_clearance": 0.0117,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0288,
+    "joint_path": 35.068
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0365,
+    "joint_path": 33.537
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "ik_error",
+    "ik_err_mm": 8.0,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0397,
+    "joint_path": 42.227
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.7,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0323,
+    "joint_path": 32.183
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.8,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0148,
+    "joint_path": 39.533
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.3,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0091,
+    "joint_path": 41.671
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0033,
+    "joint_path": 27.024
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0033,
+    "joint_path": 27.827
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ok",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0117,
+    "joint_path": 28.449
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ok",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0156,
+    "joint_path": 28.831
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ok",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0142,
+    "joint_path": 29.004
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ok",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0107,
+    "joint_path": 29.175
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 250.0,
+  "branch_azimuth_deg": 140.5,
+  "best": "ok",
+  "n_grasps_ok": 4,
+  "best_azimuth": 239.99999999999997,
+  "tree_clearance": 0.0104,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0288,
+    "joint_path": 31.869
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0364,
+    "joint_path": 30.446
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 0.2,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.038,
+    "joint_path": 54.151
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.5,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0382,
+    "joint_path": 37.724
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0146,
+    "joint_path": 23.029
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0094,
+    "joint_path": 22.954
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0033,
+    "joint_path": 23.534
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0037,
+    "joint_path": 24.198
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ok",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0104,
+    "joint_path": 24.768
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ok",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0156,
+    "joint_path": 25.196
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ok",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0142,
+    "joint_path": 25.502
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ok",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0107,
+    "joint_path": 25.83
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 260.0,
+  "branch_azimuth_deg": 150.5,
+  "best": "ok",
+  "n_grasps_ok": 4,
+  "best_azimuth": 239.99999999999997,
+  "tree_clearance": 0.0115,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0288,
+    "joint_path": 28.027
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0364,
+    "joint_path": 26.369
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 0.3,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.038,
+    "joint_path": 57.374
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.5,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0328,
+    "joint_path": 39.954
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0181,
+    "joint_path": 17.725
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0112,
+    "joint_path": 17.271
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0052,
+    "joint_path": 17.69
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0016,
+    "joint_path": 18.522
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ok",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0115,
+    "joint_path": 19.497
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ok",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0155,
+    "joint_path": 20.526
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ok",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0142,
+    "joint_path": 21.504
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ok",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0107,
+    "joint_path": 22.188
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 270.0,
+  "branch_azimuth_deg": 160.5,
+  "best": "ok",
+  "n_grasps_ok": 2,
+  "best_azimuth": 239.99999999999997,
+  "tree_clearance": 0.0139,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "ik_error",
+    "ik_err_mm": 5.5,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0288,
+    "joint_path": 25.825
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 1.6,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0364,
+    "joint_path": 47.437
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "mug_tree_collision",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.038,
+    "joint_path": 24.42
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0342,
+    "joint_path": 15.411
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0163,
+    "joint_path": 14.708
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.01,
+    "joint_path": 14.288
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0029,
+    "joint_path": 14.876
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0059,
+    "joint_path": 15.988
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ok",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0139,
+    "joint_path": 17.702
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ok",
+    "ik_err_mm": 4.0,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": 0.0155,
+    "joint_path": 18.703
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ik_error",
+    "ik_err_mm": 6.7,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0142,
+    "joint_path": 18.948
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ik_error",
+    "ik_err_mm": 7.2,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0107,
+    "joint_path": 19.47
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 280.0,
+  "branch_azimuth_deg": 170.5,
+  "best": "finger_clearance",
+  "n_grasps_ok": 0,
+  "best_azimuth": 150.0,
+  "tree_clearance": -0.0018,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "ik_error",
+    "ik_err_mm": 15.4,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0288,
+    "joint_path": 23.94
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "ik_error",
+    "ik_err_mm": 12.0,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0364,
+    "joint_path": 46.6
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "ik_error",
+    "ik_err_mm": 7.2,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.038,
+    "joint_path": 24.239
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 2.2,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.027,
+    "joint_path": 15.733
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0088,
+    "joint_path": 14.583
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.1,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": -0.0018,
+    "joint_path": 14.073
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 0.5,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0041,
+    "joint_path": 15.269
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 5.0,
+    "ik_phase": null,
+    "tree_phase": "approach",
+    "tree_clearance": 0.0092,
+    "joint_path": 15.962
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ik_error",
+    "ik_err_mm": 9.9,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0146,
+    "joint_path": 16.474
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ik_error",
+    "ik_err_mm": 13.9,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0155,
+    "joint_path": 16.817
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ik_error",
+    "ik_err_mm": 16.4,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0142,
+    "joint_path": 17.06
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ik_error",
+    "ik_err_mm": 16.9,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0107,
+    "joint_path": 17.579
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 290.0,
+  "branch_azimuth_deg": -179.5,
+  "best": "ik_error",
+  "n_grasps_ok": 0,
+  "best_azimuth": 150.0,
+  "tree_clearance": 0.0004,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "ik_error",
+    "ik_err_mm": 25.4,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0293,
+    "joint_path": 23.75
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "ik_error",
+    "ik_err_mm": 22.6,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0364,
+    "joint_path": 30.127
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "ik_error",
+    "ik_err_mm": 18.5,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.038,
+    "joint_path": 22.906
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "ik_error",
+    "ik_err_mm": 14.2,
+    "ik_phase": "carry",
+    "tree_phase": "approach",
+    "tree_clearance": -0.0279,
+    "joint_path": 14.477
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "ik_error",
+    "ik_err_mm": 11.1,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0056,
+    "joint_path": 14.14
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "ik_error",
+    "ik_err_mm": 10.5,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0004,
+    "joint_path": 13.735
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "ik_error",
+    "ik_err_mm": 12.5,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0065,
+    "joint_path": 14.086
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "ik_error",
+    "ik_err_mm": 16.2,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0115,
+    "joint_path": 14.54
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ik_error",
+    "ik_err_mm": 20.4,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0146,
+    "joint_path": 15.037
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ik_error",
+    "ik_err_mm": 24.0,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0156,
+    "joint_path": 15.495
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ik_error",
+    "ik_err_mm": 26.1,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0142,
+    "joint_path": 16.047
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ik_error",
+    "ik_err_mm": 26.6,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": 0.0107,
+    "joint_path": 17.129
+   }
+  ]
+ },
+ {
+  "tree_yaw_deg": 300.0,
+  "branch_azimuth_deg": -169.5,
+  "best": "ik_error",
+  "n_grasps_ok": 0,
+  "best_azimuth": 59.99999999999999,
+  "tree_clearance": -0.0729,
+  "tries": [
+   {
+    "azimuth_deg": 0.0,
+    "status": "ik_error",
+    "ik_err_mm": 25.7,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.069,
+    "joint_path": 42.018
+   },
+   {
+    "azimuth_deg": 30.0,
+    "status": "ik_error",
+    "ik_err_mm": 22.3,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.071,
+    "joint_path": 32.042
+   },
+   {
+    "azimuth_deg": 60.0,
+    "status": "ik_error",
+    "ik_err_mm": 20.5,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0729,
+    "joint_path": 19.489
+   },
+   {
+    "azimuth_deg": 90.0,
+    "status": "ik_error",
+    "ik_err_mm": 15.3,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0749,
+    "joint_path": 20.217
+   },
+   {
+    "azimuth_deg": 120.0,
+    "status": "ik_error",
+    "ik_err_mm": 9.1,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0756,
+    "joint_path": 20.527
+   },
+   {
+    "azimuth_deg": 150.0,
+    "status": "finger_clearance",
+    "ik_err_mm": 4.4,
+    "ik_phase": null,
+    "tree_phase": "carry",
+    "tree_clearance": -0.0736,
+    "joint_path": 20.539
+   },
+   {
+    "azimuth_deg": 180.0,
+    "status": "ik_error",
+    "ik_err_mm": 4.4,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0741,
+    "joint_path": 20.835
+   },
+   {
+    "azimuth_deg": 210.0,
+    "status": "ik_error",
+    "ik_err_mm": 7.3,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0656,
+    "joint_path": 21.854
+   },
+   {
+    "azimuth_deg": 240.0,
+    "status": "ik_error",
+    "ik_err_mm": 12.2,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0659,
+    "joint_path": 22.047
+   },
+   {
+    "azimuth_deg": 270.0,
+    "status": "ik_error",
+    "ik_err_mm": 19.0,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0669,
+    "joint_path": 21.669
+   },
+   {
+    "azimuth_deg": 300.0,
+    "status": "ik_error",
+    "ik_err_mm": 26.1,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0683,
+    "joint_path": 20.644
+   },
+   {
+    "azimuth_deg": 330.0,
+    "status": "ik_error",
+    "ik_err_mm": 29.6,
+    "ik_phase": "carry",
+    "tree_phase": "carry",
+    "tree_clearance": -0.0754,
+    "joint_path": 20.581
+   }
+  ]
+ }
+]
