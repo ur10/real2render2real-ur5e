@@ -76,13 +76,79 @@ The demo track is also cleaned up before planning: while the cube sits on the pl
 tracked pose tilts it by up to 23°, and during the carry it spins 80°, which under the cube's 90°
 symmetry is the same as −10°. The planner levels the cube and uses the smallest equivalent yaw.
 
+## Does more diverse data give a better policy?
+
+The point of generating demonstrations is training data. The same visuomotor policy (ResNet-18 over
+both RealSense views + joint state, 16-step joint action chunks; `pipeline/policy.py`,
+`pipeline/train_policy.py`) is trained on datasets of increasing diversity, all generated from the
+one tracked demo, and evaluated closed-loop in the twin on the same 96 held-out scenes per set
+(`sim/eval_ur5e_cube_policy.py`, scenes in `assets/outputs/ur_cube/eval/scenes.json`).
+
+- **Clean:** the cube starts at a held-out offset on the pick fixture, no obstacle.
+- **Blocked:** a bottle stands on the route so the plain generated motion would hit it, but a
+  collision-free motion exists.
+
+Success means the cube ends released on the goal fixture without the arm or held cube ever entering
+the bottle. Contact is not simulated: the cube attaches when the gripper closes around it, as in data
+generation.
+
+| Training data | Rollouts | Clean scenes | Blocked-route scenes |
+|---|---|---|---|
+| 1 demo, replayed | 1 | 3/96 (3%) | 0/96 (0%) |
+| R2R2R | 25 | 34/96 (35%) | 1/96 (1%) |
+| R2R2R | 100 | 82/96 (85%) | 0/96 (0%) |
+| R2R2R | 400 | 90/96 (94%) | 1/96 (1%) |
+| R2R2R + bottle scenes, filtered | 400 | 92/96 (96%) | 4/96 (4%) |
+| R2R2R + bottle scenes, repaired | 400 | 91/96 (95%) | 82/96 (85%) |
+
+95% Wilson intervals are in `assets/outputs/ur_cube/eval/summary.md`. The bottle sets are 200 R2R2R
+rollouts + 200 with a bottle. "Filtered" keeps only bottle scenes where the unrepaired motion is
+already clear, so the policy never sees a detour; "repaired" uses `demo_repair.py`.
+
+![Closed-loop rollouts on clean scenes](docs/policy_clean.jpg)
+![Closed-loop rollouts on blocked-route scenes](docs/policy_blocked.jpg)
+
+More randomized data takes the policy from 3% to 94% on clean scenes. None of that transfers to a
+blocked route, and filtering doesn't help either; with repaired bottle scenes in the data the policy
+goes around the bottle in 85% of blocked scenes, without losing clean-scene success. These are twin
+results; real-robot trials are next.
+
+Everything is in one script: `pipeline/policy_experiment.sh gen|build|train|eval`.
+
+## Trajectory interpolation with object permutations
+
+![Mug placed beside the route: plain trajectories that collide (red) and the repaired ones (amber)](docs/traj3d_perm_mug.jpg)
+
+`pipeline/make_traj_permutations.py` takes the generator's interpolated trajectories (new cube
+starts, warped demo) and places scanned objects on and beside the route: the bottle, a mug and a
+cereal box from Google Scanned Objects (`pipeline/prep_gso_obstacle.py`, cylinder or box collision
+proxy). Each object/start pair is run through the repair planner. Over 8 placements x 6 starts:
+48 trajectories, 37 collide as generated; filtering keeps 11, repair keeps 43 and rejects 5 (the
+object blocks the grasp, lift-off or set-down). `pipeline/make_traj_viser.py` writes the figures
+and an interactive viser recording.
+
+## Other embodiments
+
+![The demo's cube trajectory executed by a Franka Panda](docs/emb_panda.jpg)
+
+The robot motion comes from the object's track plus a grasp, so it is not tied to the UR5e.
+`pipeline/retarget_embodiment.py` runs the generator's phases for the same cube trajectory and grasp
+on a UR5e, a UR10e (same 2F-85 and mount; `build_ur5e_robotiq_urdf.py --ur-type ur10e`) and a Franka
+Panda standing on the table (`pipeline/build_panda_urdf.py`), with whole-sequence IK. All three
+track every TCP target to under 0.01 mm. `pipeline/make_embodiment_viser.py` writes the viser
+replays. The UR10e and Panda are not yet rendered through the Isaac camera pipeline or used for
+training.
+
 ## Repository layout
 
 ```
-pipeline/   bench calibration, scan alignment, cube tracking, robot model, demo repair, media (→ scripts/ur_cube/)
-sim/        UR5e cube pick-and-place simulator, scene and robot configs, run script
+pipeline/   bench calibration, scan alignment, cube tracking, robot models, demo repair, policy
+            training and the policy experiment, media (→ scripts/ur_cube/)
+sim/        UR5e cube pick-and-place simulator, closed-loop policy evaluator, scene and robot
+            configs, run scripts
 patches/    fixes to upstream Real2Render2Real, RSRD, DiG and hamer_helper
-assets/     small bench files: calibrated cameras, scene layout, tracked trajectory, cube mesh, skybox
+assets/     small bench files: calibrated cameras, scene layout, tracked trajectory, cube mesh, skybox,
+            held-out eval scenes
 launchers/  generate.sh, headless data generation
 install.sh  installs all of the above into a Real2Render2Real checkout
 ```
@@ -154,6 +220,27 @@ python scripts/run_ur5e_cube.py --traj $TRAJ --obstacle --obstacle-xy 0.096 -0.7
     --num-envs 2 --max-episodes 1 --output-dir output_data/ur5e_repair_compare
 python scripts/ur_cube/make_repair_compare.py --run output_data/ur5e_repair_compare \
     --output outputs/ur_cube/media/repair_compare.mp4
+
+# 7. Policies: generate, pack, train, evaluate closed-loop (Isaac on GPU 0, training on $TRAIN_GPU)
+bash scripts/ur_cube/policy_experiment.sh all
+python scripts/ur_cube/summarize_policy_experiment.py
+python scripts/ur_cube/make_eval_grid.py --help                 # rollout grids
+
+# 8. Trajectory interpolation with object permutations (viser 0.2.23 for the recordings)
+python scripts/ur_cube/prep_gso_obstacle.py --name Cole_Hardware_Mug_Classic_Blue --output data/obstacles/mug
+python scripts/ur_cube/prep_gso_obstacle.py --name Vans_Cereal_Honey_Nut_Crunch_11_oz_box \
+    --output data/obstacles/cereal_box --proxy box
+python scripts/ur_cube/make_traj_permutations.py --help
+uv run --no-project --with viser==0.2.23 --with trimesh --with pillow --with tyro \
+    python scripts/ur_cube/make_traj_viser.py
+
+# 9. Other embodiments
+# expand ur10e_description to data/ur10e_robotiq/ur10e_raw.urdf first (see build_ur5e_robotiq_urdf.py)
+python scripts/ur_cube/build_ur5e_robotiq_urdf.py --ur-type ur10e --out-dir data/ur10e_robotiq --coupling-z 0.04 --tcp-z 0.16
+python scripts/ur_cube/build_panda_urdf.py
+python scripts/ur_cube/retarget_embodiment.py
+uv run --no-project --with viser==0.2.23 --with yourdfpy --with pycollada --with tyro \
+    python scripts/ur_cube/make_embodiment_viser.py
 ```
 
 Tested on Ubuntu 22.04, driver 580, Isaac Sim 4.5 / IsaacLab, RTX 3080 Ti (12 GB). One GPU job per
@@ -161,17 +248,19 @@ card: the tracker and Isaac Sim don't fit together on 12 GB.
 
 ## Status
 
-The robot motion is rendered, not yet executed on hardware. Next: replaying generated
-demonstrations on the real UR5e against the calibrated cameras, then training a policy on the
-generated data.
+Policies are trained and evaluated in the twin; the robot motion is not yet executed on hardware.
+Next: real-robot trials of the trained policies.
 
 ## Acknowledgements
 
 Built on Real2Render2Real by Justin Yu, Letian Fu, Huang Huang, Karim El-Refai, Rares Andrei Ambrus,
 Richard Cheng, Muhammad Zubair Irshad and Ken Goldberg, and on RSRD, DiG, trajgen, IsaacLab, jaxmp
 and jaxls. The obstacle bottle is the Google Scanned Objects model
-`Weston_No_33_Signature_Sausage_Tonic_12_fl_oz` (CC-BY 4.0, Google LLC), downloaded by
-`pipeline/prep_gso_obstacle.py` and not redistributed here.
+`Weston_No_33_Signature_Sausage_Tonic_12_fl_oz`, the mug `Cole_Hardware_Mug_Classic_Blue` and the
+cereal box `Vans_Cereal_Honey_Nut_Crunch_11_oz_box` are Google Scanned Objects (CC-BY 4.0, Google
+LLC), downloaded by `pipeline/prep_gso_obstacle.py` and not redistributed here. The Panda model is
+from example-robot-data and the UR10e from Universal Robots' ROS description, both fetched with
+robot_descriptions.
 
 ```bibtex
 @misc{yu2025real2render2realscalingrobotdata,

@@ -17,6 +17,9 @@ Expand the UR xacro first (needs xacrodoc, so use a throwaway env):
        from robot_descriptions._xacro import get_urdf_path; import shutil; \
        shutil.copy(get_urdf_path(m), 'data/ur5e_robotiq/ur5e_raw.urdf')"
     python scripts/ur_cube/build_ur5e_robotiq_urdf.py --out-dir data/ur5e_robotiq
+    # same mount, bigger arm (cross-embodiment renders): expand ur10e_description the same way, then
+    python scripts/ur_cube/build_ur5e_robotiq_urdf.py --ur-type ur10e --out-dir data/ur10e_robotiq \
+        --coupling-z 0.04 --tcp-z 0.16
 """
 
 import copy
@@ -29,7 +32,7 @@ from pathlib import Path
 import tyro
 
 ROBOTIQ_DIR = Path.home() / ".cache/robot_descriptions/robotiq_arg85_description"
-UR_MESH_PREFIX = "file://" + str(Path.home() / ".cache/robot_descriptions/ur_description/meshes/ur5e")
+UR_MESHES = Path.home() / ".cache/robot_descriptions/ur_description/meshes"
 GRIPPER_JOINTS = {
     "finger_joint", "left_inner_knuckle_joint", "left_inner_finger_joint",
     "right_inner_knuckle_joint", "right_inner_finger_joint", "right_outer_knuckle_joint",
@@ -44,13 +47,14 @@ def fixed_joint(name: str, parent: str, child: str, xyz=(0, 0, 0), rpy=(0, 0, 0)
     return j
 
 
-def relink_meshes(elem: ET.Element, out_dir: Path) -> None:
+def relink_meshes(elem: ET.Element, out_dir: Path, ur_type: str = "ur5e") -> None:
     """Copy each referenced mesh into out_dir/meshes and point the URDF at the copy."""
     for mesh in elem.iter("mesh"):
         fname = mesh.get("filename")
-        if fname.startswith(UR_MESH_PREFIX):
+        prefix = f"file://{UR_MESHES / ur_type}"
+        if fname.startswith(prefix):
             src = Path(fname[len("file://"):])
-            rel = Path("meshes/ur5e") / src.relative_to(UR_MESH_PREFIX[len("file://"):])
+            rel = Path(f"meshes/{ur_type}") / src.relative_to(UR_MESHES / ur_type)
         elif fname.startswith("package://robotiq_arg85_description/"):
             src = ROBOTIQ_DIR / fname[len("package://robotiq_arg85_description/"):]
             rel = Path("meshes/robotiq_2f85") / src.name
@@ -66,17 +70,19 @@ def main(
     coupling_z: float = 0.0,
     gripper_yaw_deg: float = 0.0,
     tcp_z: float = 0.15,
+    ur_type: str = "ur5e",
 ) -> None:
     """
     Args:
         coupling_z: distance from the UR tool0 flange to the Robotiq base (coupling height), m.
         gripper_yaw_deg: rotation of the gripper about the flange z axis.
         tcp_z: TCP distance from the Robotiq base along its approach (z) axis, m.
+        ur_type: UR model whose expanded xacro is <out_dir>/<ur_type>_raw.urdf (ur5e, ur10e, ...).
     """
-    ur = ET.parse(out_dir / "ur5e_raw.urdf").getroot()
+    ur = ET.parse(out_dir / f"{ur_type}_raw.urdf").getroot()
     rq = ET.parse(ROBOTIQ_DIR / "robots/robotiq_arg85_description.URDF").getroot()
 
-    robot = ET.Element("robot", name="ur5e_robotiq85")
+    robot = ET.Element("robot", name=f"{ur_type}_robotiq85")
     robot.append(ET.Element("link", name="ur_base"))
     robot.append(fixed_joint("ur_base-base_link", "ur_base", "base_link", rpy=(0, 0, math.pi)))
     # Drop the xacro's world link and ROS's duplicate `base` frame (== ur_base).
@@ -105,21 +111,21 @@ def main(
     robot.append(ET.Element("link", name="tcp"))
     robot.append(fixed_joint("robotiq_85_base_link-tcp", "robotiq_85_base_link", "tcp", xyz=(0, 0, tcp_z)))
 
-    relink_meshes(robot, out_dir)
+    relink_meshes(robot, out_dir, ur_type)
     ET.indent(robot)
-    full_path = out_dir / "ur5e_robotiq85.urdf"
+    full_path = out_dir / f"{ur_type}_robotiq85.urdf"
     ET.ElementTree(robot).write(full_path, xml_declaration=True, encoding="utf-8")
 
     # IK variant: same tree with every gripper joint welded at the open pose.
     ik = copy.deepcopy(robot)
-    ik.set("name", "ur5e_robotiq85_ik")
+    ik.set("name", f"{ur_type}_robotiq85_ik")
     for j in ik.findall("joint"):
         if j.get("name") in GRIPPER_JOINTS:
             j.set("type", "fixed")
             for tag in ("mimic", "limit", "axis", "dynamics"):
                 for e in j.findall(tag):
                     j.remove(e)
-    ik_path = out_dir / "ur5e_robotiq85_ik.urdf"
+    ik_path = out_dir / f"{ur_type}_robotiq85_ik.urdf"
     ET.ElementTree(ik).write(ik_path, xml_declaration=True, encoding="utf-8")
 
     n_rev = lambda r: len([j for j in r.findall("joint") if j.get("type") == "revolute"])

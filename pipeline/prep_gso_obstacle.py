@@ -3,7 +3,9 @@
 Downloads the model from Gazebo Fuel (CC-BY 4.0, Google LLC), re-centres the mesh on its vertical
 axis with the base at z = 0, downsizes the texture, and writes `obstacle.json` with the collision
 proxy the planner uses: a vertical cylinder whose radius is the mesh's largest distance from that
-axis and whose height is the mesh height (so the proxy contains the whole object).
+axis and whose height is the mesh height (so the proxy contains the whole object). Boxy objects can
+use `--proxy box` instead: the mesh is turned so its tightest footprint rectangle is axis-aligned and
+the proxy is that box (`size` = x, y, z extents).
 
 Then convert to USD (not instanceable, no physics: the obstacle is visual-only in Isaac):
     python dependencies/IsaacLab/scripts/tools/convert_mesh.py data/obstacles/sauce_bottle/model.obj \
@@ -29,6 +31,7 @@ def main(
     name: str = "Weston_No_33_Signature_Sausage_Tonic_12_fl_oz",
     output: Path = Path("data/obstacles/sauce_bottle"),
     texture_size: int = 2048,
+    proxy: str = "cylinder",
 ) -> None:
     src = output / "gso"
     if not (src / "meshes" / "model.obj").exists():
@@ -41,12 +44,22 @@ def main(
     # GSO meshes are z-up, metres, base near z = 0. Axis = centre of the xy bounding box.
     c = onp.array([(v[:, 0].min() + v[:, 0].max()) / 2, (v[:, 1].min() + v[:, 1].max()) / 2, v[:, 2].min()])
     v = v - c
+    rot = onp.eye(3)
+    if proxy == "box":  # align the tightest footprint rectangle with x / y
+        import trimesh.bounds
+        T2, _ = trimesh.bounds.oriented_bounds_2D(v[:, :2])
+        rot[:2, :2] = T2[:2, :2]
+        v = v @ rot.T
+        v[:, :2] -= (v[:, :2].min(0) + v[:, :2].max(0)) / 2
     radius = float(onp.linalg.norm(v[:, :2], axis=1).max())
     height = float(v[:, 2].max())
 
     out, i = [], 0
     for l in lines:
-        if l.startswith("v "):
+        if l.startswith("vn ") and proxy == "box":
+            n = rot @ onp.array(l.split()[1:4], dtype=onp.float64)
+            out.append("vn " + " ".join(f"{x:.6f}" for x in n))
+        elif l.startswith("v "):
             rest = l.split()[4:]  # keep vertex colours if any
             out.append("v " + " ".join(f"{x:.6f}" for x in v[i]) + ("" if not rest else " " + " ".join(rest)))
             i += 1
@@ -71,7 +84,10 @@ def main(
         origin="base",  # mesh origin on the vertical axis at the bottom face
         radius=round(radius, 4),
         height=round(height, 4),
+        proxy=proxy,
     )
+    if proxy == "box":
+        meta["size"] = [round(float(x), 4) for x in (v[:, 0].max() - v[:, 0].min(), v[:, 1].max() - v[:, 1].min(), height)]
     (output / "obstacle.json").write_text(json.dumps(meta, indent=1) + "\n")
     print(json.dumps(meta, indent=1))
 

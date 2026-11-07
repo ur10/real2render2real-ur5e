@@ -38,6 +38,10 @@ parser.add_argument("--obstacle-fraction", type=float, nargs=2, default=(0.3, 0.
 parser.add_argument("--obstacle-lateral", type=float, nargs=2, default=(-0.06, 0.06), help="range across it (m)")
 parser.add_argument("--no-repair", action="store_true", help="with --obstacle: reject colliding envs instead of repairing")
 parser.add_argument("--obstacle-xy", type=float, nargs=2, default=None, help="fixed obstacle position (base frame)")
+parser.add_argument("--obstacle-prob", type=float, default=1.0, help="chance that an env gets the obstacle")
+parser.add_argument("--reject-resample", action="store_true",
+                    help="reject-only baseline: redraw each placement until the unrepaired motion is collision-free")
+parser.add_argument("--save-scale", type=int, default=1, help="save images downscaled by this factor (2: 640x360)")
 parser.add_argument("--compare", action="store_true",
                     help="figures: env 0 replays the plain generator's motion (unfiltered) next to the repaired one; "
                          "use with --obstacle-xy --no-augment --num-envs 2")
@@ -45,6 +49,11 @@ AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 args.headless, args.enable_cameras = True, True
 simulation_app = AppLauncher(args).app
+
+# JAX (IK controller, planner) would otherwise open a context on every GPU and fail when another job
+# holds the other one ("Failed to initialize BLAS support"): keep it on the simulation's GPU.
+import jax  # noqa: E402
+jax.config.update("jax_cuda_visible_devices", args.device.split(":")[-1] if args.device.startswith("cuda:") else "0")
 
 from real2render2real.isaaclab_viser.configs.scene_configs.ur5e_scene_cfg import (  # noqa: E402
     UR5eCubePnPCfg, UR5eCubePnPObstacleCfg, obstacle_spawn_from_asset,
@@ -68,7 +77,8 @@ if args.obstacle:
         scene_cfg.obstacle.spawn = obstacle_spawn_from_asset(meta_file)
         obstacle = dict(radius=meta["radius"], height=meta["height"], origin=meta["origin"])
     obstacle.update(fraction=tuple(args.obstacle_fraction), lateral=tuple(args.obstacle_lateral),
-                    xy=args.obstacle_xy, compare=args.compare)
+                    xy=args.obstacle_xy, compare=args.compare, prob=args.obstacle_prob,
+                    resample_until_valid=args.reject_resample)
 sim, code = None, 0
 try:
     sim = UR5eCubePnP(
@@ -84,6 +94,7 @@ try:
         wait_for_client=args.wait_for_client,
         obstacle=obstacle,
         repair=not args.no_repair,
+        save_scale=args.save_scale,
     )
 except Exception:
     traceback.print_exc()

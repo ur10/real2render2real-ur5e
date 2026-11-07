@@ -72,6 +72,12 @@ def smoothstep(t):
     return t * t * (3 - 2 * t)
 
 
+def downscale_rgb(rgb: torch.Tensor, factor: int) -> torch.Tensor:
+    """(N, H, W, 3) uint8 -> (N, H/f, W/f, 3) uint8, box filter (what the saved datasets use)."""
+    x = torch.nn.functional.avg_pool2d(rgb[..., :3].permute(0, 3, 1, 2).float(), factor)
+    return x.round().clamp(0, 255).to(torch.uint8).permute(0, 2, 3, 1).contiguous()
+
+
 def along_tool_z(dz: float, n: int, device) -> tf.SE3:
     """Pure translation of dz along the (right-multiplied) frame's z axis, batched."""
     return tf.SE3(torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, dz]], device=device).repeat(n, 1))
@@ -81,8 +87,9 @@ class UR5eCubePnP(IsaacLabViser):
     def __init__(self, *args, traj_path: Path, max_successes: int = 1000, max_episodes: int = None,
                  start_xy_noise: float = 0.03, start_yaw_noise: float = onp.radians(30),
                  wait_for_client: bool = False, randomize_look: bool = True,
-                 obstacle: dict | None = None, repair: bool = True, **kwargs):
+                 obstacle: dict | None = None, repair: bool = True, save_scale: int = 1, **kwargs):
         self.randomize_look = randomize_look
+        self.save_scale = save_scale  # saved images downscaled by this factor (area filter)
         # obstacle: dict(radius, height, origin, fraction=(lo, hi), lateral=(lo, hi)), see
         # _sample_obstacles; radius/height are the planner's collision cylinder. Figure options:
         # xy=(x, y) fixes the placement; compare=True makes env 0 replay the plain generator's motion
@@ -219,18 +226,19 @@ class UR5eCubePnP(IsaacLabViser):
         c = self.obstacle_cfg
         if c.get("xy") is not None:  # fixed placement (figures)
             return onp.tile(onp.asarray(c["xy"], dtype=onp.float64), (self.scene.num_envs, 1))
+        return onp.array([self._sample_obstacle_xy(e) for e in range(self.scene.num_envs)])
+
+    def _sample_obstacle_xy(self, e: int) -> onp.ndarray:
+        c = self.obstacle_cfg
         fx = onp.array([[*f["center_xy"]] for f in LAYOUT["fixtures"]])
-        out = []
-        for e in range(self.scene.num_envs):
-            t = self.trajs[e].cpu().numpy()
-            p0, p1 = t[0, 4:6], t[-1, 4:6]
-            d = (p1 - p0) / onp.linalg.norm(p1 - p0)
-            for _ in range(50):
-                xy = p0 + onp.random.uniform(*c["fraction"]) * (p1 - p0) + onp.random.uniform(*c["lateral"]) * onp.array([-d[1], d[0]])
-                if (onp.linalg.norm(fx - xy, axis=1) - FIXTURE_RADIUS - c["radius"] > 0.01).all():
-                    break
-            out.append(xy)
-        return onp.array(out)
+        t = self.trajs[e].cpu().numpy()
+        p0, p1 = t[0, 4:6], t[-1, 4:6]
+        d = (p1 - p0) / onp.linalg.norm(p1 - p0)
+        for _ in range(50):
+            xy = p0 + onp.random.uniform(*c["fraction"]) * (p1 - p0) + onp.random.uniform(*c["lateral"]) * onp.array([-d[1], d[0]])
+            if (onp.linalg.norm(fx - xy, axis=1) - FIXTURE_RADIUS - c["radius"] > 0.01).all():
+                break
+        return xy
 
     def _place_obstacles(self, xy: onp.ndarray, height: float, origin: str = "center"):
         """Move each env's (visual-only) obstacle prim; positions are env-local. `origin` is where the
@@ -247,16 +255,29 @@ class UR5eCubePnP(IsaacLabViser):
         from demo_repair import World
         c = self.obstacle_cfg
         xy = self._sample_obstacles()
-        self._place_obstacles(xy, c["height"], c.get("origin", "center"))
+        # prob < 1: some envs get no obstacle (same planned-motion path, obstacle prim moved away).
+        present = onp.random.rand(self.scene.num_envs) < c.get("prob", 1.0)
+        if c.get("compare") or c.get("xy") is not None:
+            present[:] = True
 
         base = World.from_layout(LAYOUT)
         qs, objs, tcps, ok, status, log = [], [], [], [], [], []
         for e in range(self.scene.num_envs):
-            world = base.with_cylinder(float(xy[e, 0]), float(xy[e, 1]), c["radius"], c["height"])
+            obj_traj = self.trajs[e].cpu().numpy().astype(onp.float64)
+            world = base.with_cylinder(float(xy[e, 0]), float(xy[e, 1]), c["radius"], c["height"]) if present[e] else base
             if c.get("compare") and e > 0:  # same scene in every env: plan once
                 pass
+            elif present[e] and c.get("resample_until_valid"):
+                # Reject-only baseline at data level: redraw the placement until the plain generator's
+                # motion is already collision-free (what filtering alone keeps), no repair.
+                for _ in range(c.get("max_resample", 30)):
+                    out = self.planner.run(world, obj_traj=obj_traj, repair=False)
+                    if out["q"] is not None:
+                        break
+                    xy[e] = self._sample_obstacle_xy(e)
+                    world = base.with_cylinder(float(xy[e, 0]), float(xy[e, 1]), c["radius"], c["height"])
             else:
-                out = self.planner.run(world, obj_traj=self.trajs[e].cpu().numpy().astype(onp.float64), repair=self.repair)
+                out = self.planner.run(world, obj_traj=obj_traj, repair=self.repair)
             good = out["q"] is not None
             q = out["q"] if good else out["q_baseline"]  # failed envs still move (and are dropped)
             nom = out["nominal"]
@@ -269,12 +290,15 @@ class UR5eCubePnP(IsaacLabViser):
             status.append(out["status"])
             shown = "generator" if c.get("compare") and e == 0 else "planned"
             chk = out["before"] if shown == "generator" else out.get("after")
-            log.append(dict(episode=self.episodes, env=e, obstacle_xy=xy[e].tolist(), status=out["status"], shown=shown,
+            log.append(dict(episode=self.episodes, env=e, obstacle_xy=xy[e].tolist() if present[e] else None,
+                            status=out["status"], shown=shown,
                             obstacle_clearance_per_step=None if chk is None else onp.round(onp.asarray(chk["obstacle_clearance_per_step"]), 4).tolist(),
                             generator_ok=bool(out["before"]["ok"]), seed=out.get("seed"),
                             grasp_yaw_k=int(nom["grasp_yaw_k"]), time_s=round(out["time_s"], 2),
                             baseline_min_clearance=out["before"]["min_obstacle_clearance"],
                             min_clearance=out["after"]["min_obstacle_clearance"] if out.get("after") else None))
+        far = onp.where(present[:, None], xy, onp.array([[0.0, 30.0]]))  # absent: 30 m away, out of view
+        self._place_obstacles(far, c["height"], c.get("origin", "center"))
         if self.output_dir is not None:
             Path(self.output_dir).mkdir(parents=True, exist_ok=True)
             with open(Path(self.output_dir) / "plans.jsonl", "a") as f:
@@ -503,6 +527,8 @@ class UR5eCubePnP(IsaacLabViser):
             "gripper_binary_cmd": onp.full((self.scene.num_envs, 1), self.gripper_cmd > 0.5 * (ROBOTIQ_OPEN + self.gripper_close)),
         }
         buffers = {f.name[1:]: self.camera_manager.buffers[f.name[1:]] for f in self.camera_manager.frustums}
+        if self.save_scale > 1:
+            buffers = {k: [{"rgb": downscale_rgb(b[0]["rgb"], self.save_scale)}] for k, b in buffers.items()}
         self.data_logger.save_data(buffers, robot_data, step, self.output_dir)
         self.obj_log.append(self._obj_now.cpu().numpy())  # cube pose (wxyz_xyz) at this logged step
         stats = self.data_logger.get_stats()
