@@ -13,7 +13,9 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.utils import configclass
 
-from real2render2real.isaaclab_viser.configs.scene_configs.ur5e_scene_cfg import UR5eBaseCfg, data_dir, repo_dir
+from real2render2real.isaaclab_viser.configs.scene_configs.ur5e_scene_cfg import (
+    UR5eBaseCfg, data_dir, obstacle_spawn_from_asset, repo_dir,
+)
 
 TAPE_SCENE = json.load(open(os.path.join(repo_dir, "outputs/ur_tape/scene.json")))
 TAPE_DIMS = json.load(open(os.path.join(repo_dir, "outputs/ur_tape/tape_dims.json")))
@@ -93,3 +95,19 @@ class UR5eNutCfg(UR5eBaseCfg):
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=tuple(NUT_DIMS["poses"][0]["centre"])),
     )
+
+
+def _obstacle(meta_file: str = f"{data_dir}/obstacles/sauce_bottle/obstacle.json") -> AssetBaseCfg:
+    """Visual-only scanned obstacle, moved per env at reset (as UR5eCubePnPObstacleCfg)."""
+    return AssetBaseCfg(prim_path="{ENV_REGEX_NS}/Obstacle", spawn=obstacle_spawn_from_asset(meta_file),
+                        init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 30.0, 0.0)))
+
+
+@configclass
+class UR5eTapeObstacleCfg(UR5eTapeCfg):
+    obstacle = _obstacle()
+
+
+@configclass
+class UR5eNutObstacleCfg(UR5eNutCfg):
+    obstacle = _obstacle()

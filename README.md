@@ -183,6 +183,27 @@ so their calibration is reused (`assets/outputs/ur_tape/realsense_calib.json`). 
 
 The tape and nut rollouts are not yet used to train policies.
 
+### Scene edits, permutations and 3D replays for the two tasks
+
+![Tape roll: the plain motion carries the roll through a bottle; the repaired one goes around it](docs/tape_repair_compare.jpg)
+
+`pipeline_rgb/ring_repair.py` runs the cube's demo repair (`demo_repair.DemoRepair`) on the ring
+tasks with their own grasp candidates (the ring planner's rim positions), pinned segments (the
+lift-off, and the last stretch onto the branch or the rod), a ring of spheres for the held object
+and the fixture's vertical parts as environment; every result is re-checked with the ring planner's
+full check, which includes the mug tree's angled branches. `run_ur5e_tape.py --obstacle-xy X Y
+--compare` renders the before/after pair; `make_ring_permutations.py` places the scanned bottle,
+mug and cereal box on and beside each route:
+
+| Task | Trajectories (placements x starts) | Collide as generated | Kept: filter only -> with repair | Rejected |
+|---|---|---|---|---|
+| Tape roll | 48 (8 x 6) | 48 | 0 -> 29 | 19 (16 block a fixed segment, 3 no path) |
+| Nut | 54 (9 x 6) | 40 | 14 -> 34 | 20 (all block a fixed segment) |
+
+On the nut's short route (22 cm) every object blocks the descent to the nut or onto the rod, so its
+placements are beside the route. `make_ring_replay_viser.py` and `make_ring_traj_viser.py` write
+the interactive replays (bench splat with the cube task's fixtures painted out, measured meshes).
+
 ## Repository layout
 
 ```
@@ -303,6 +324,17 @@ scripts/ur_cube/isaac_run.sh outputs/ur_tape/logs/gen.log "^\[INFO\]: Episode 12
     --traj outputs/ur_tape/traj_ep1_hang_clean.json --tree-yaw 240 260 --max-episodes 12 --output-dir output_data/tape/r2r2r
 scripts/ur_cube/isaac_run.sh outputs/ur_nut/logs/gen.log "^\[INFO\]: Episode 12:" scripts/run_ur5e_tape.py --task nut \
     --traj outputs/ur_nut/traj_ep4_place_clean.json --start-offset 0.08 0.12 --max-episodes 12 --output-dir output_data/nut/r2r2r
+# scene edits + permutations + 3D (viser 0.2.23 for the recordings)
+scripts/ur_cube/isaac_run.sh outputs/ur_tape/logs/compare.log "^\[INFO\]: Episode 1:" scripts/run_ur5e_tape.py --task tape \
+    --traj outputs/ur_tape/traj_ep1_hang_clean.json --num-envs 2 --max-episodes 1 --no-augment --save-scale 1 \
+    --obstacle-xy 0.004 -0.737 --compare --output-dir output_data/tape/repair_compare
+python scripts/ur_cube/make_repair_compare.py --run output_data/tape/repair_compare --output outputs/ur_tape/media/tape_repair_compare.mp4 \
+    --crops 301 178 1264 719 0 116 1073 719
+python scripts/ur_tape/make_ring_permutations.py --task tape
+python scripts/ur_tape/make_ring_permutations.py --task nut --lateral -0.16 0.16 --min-lateral 0.05 --fraction 0.0 1.0 --seed 5
+uv run --no-project --with viser==0.2.23 --with yourdfpy --with pycollada --with h5py --with trimesh --with pillow --with tyro \
+    python scripts/ur_tape/make_ring_replay_viser.py --task tape --rollout <replay rollout> --output outputs/ur_tape/viser/tape_replay.viser
+uv run --no-project --with viser==0.2.23 --with trimesh --with pillow --with tyro python scripts/ur_tape/make_ring_traj_viser.py --task tape
 ```
 
 Tested on Ubuntu 22.04, driver 580, Isaac Sim 4.5 / IsaacLab, RTX 3080 Ti (12 GB). One GPU job per

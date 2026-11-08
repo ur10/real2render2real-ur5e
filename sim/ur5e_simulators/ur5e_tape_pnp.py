@@ -13,6 +13,11 @@ motion is made. Per reset it:
     bench, arm/gripper within 5 mm of the tree) are dropped like the cube generator's failures,
   * replays the joints kinematically with the roll (band + core) on the tracked/warped trajectory.
 Per-env plan outcomes go to <output_dir>/plans.jsonl.
+
+With `obstacle=dict(radius, height, origin, xy=..., compare=...)` a scanned object is placed (visual
+only) and the motion comes from scripts/ur_tape/ring_repair.py: checked against it and, with
+`repair=True`, its free segments re-optimized; `compare=True` makes env 0 replay the plain
+generator's motion next to the repaired one (the before/after figure, make_repair_compare.py).
 """
 
 import json
@@ -24,6 +29,11 @@ import numpy as onp
 import torch
 
 import real2render2real.utils.transforms as tf
+
+
+def jnp_asarray(x):
+    import jax.numpy as jnp
+    return jnp.asarray(x)
 from real2render2real.isaaclab_viser.ur5e_simulators.ur5e_cube_pnp import UR5eCubePnP
 from trajgen.traj_interp import traj_interp_batch
 
@@ -31,7 +41,8 @@ from trajgen.traj_interp import traj_interp_batch
 class UR5eTapePnP(UR5eCubePnP):
     def __init__(self, *args, start_xy_noise: float = 0.04, start_yaw_noise: float = onp.pi,
                  tree_yaw_range: tuple = (250.0, 250.0), planner_kwargs: dict | None = None,
-                 fixture_prim: str = "MugTree", start_offset_xy: tuple = (0.0, 0.0), **kwargs):
+                 fixture_prim: str = "MugTree", start_offset_xy: tuple = (0.0, 0.0), task: str = "tape",
+                 obstacle: dict | None = None, **kwargs):
         """planner_kwargs: TapePlanner arguments (scene/dims files, grasp style) for other ring tasks
         such as the nut; fixture_prim: the prim turned with `tree_yaw_range` (none turned if the range
         is (0, 0)); start_offset_xy: shifts every sampled start, e.g. into reach when the human's start
@@ -39,6 +50,9 @@ class UR5eTapePnP(UR5eCubePnP):
         self.tree_yaw_range = tree_yaw_range
         self.planner_kwargs, self.fixture_prim = planner_kwargs or {}, fixture_prim
         self.start_offset_xy = start_offset_xy
+        self.task = task
+        # kept apart from the cube generator's obstacle_cfg, which would build the cube's planner
+        self.ring_obstacle = obstacle
         super().__init__(*args, start_xy_noise=start_xy_noise, start_yaw_noise=start_yaw_noise, **kwargs)
 
     def _planner(self):
@@ -93,7 +107,9 @@ class UR5eTapePnP(UR5eCubePnP):
         self.trajs = torch.tensor(trajs, dtype=torch.float32, device=self.device)
 
         qs, objs, tcps, ok, status, log = [], [], [], [], [], []
-        for e in range(n):
+        if self.ring_obstacle is not None:
+            qs, objs, tcps, ok, status, log = self._plan_with_obstacle(trajs)
+        for e in range(n if self.ring_obstacle is None else 0):
             t0 = time.time()
             planner.set_tree_yaw(float(self.tree_yaws[e]))
             p = planner.plan(trajs[e])
@@ -123,6 +139,44 @@ class UR5eTapePnP(UR5eCubePnP):
             if not ok[e]:
                 self._fail(torch.arange(n, device=self.device) == e, st)
 
+    def _plan_with_obstacle(self, trajs):
+        """Plan each env with the obstacle (ring_repair.RingRepair); move the obstacle prims."""
+        from ring_repair import RingRepair
+        c, n = self.ring_obstacle, self.scene.num_envs
+        if getattr(self, "ring_rep", None) is None:
+            self.ring_rep = RingRepair(self.task)
+        rep = self.ring_rep
+        xy = onp.tile(onp.asarray(c["xy"], onp.float64), (n, 1))
+        qs, objs, tcps, ok, status, log = [], [], [], [], [], []
+        for e in range(n):
+            t0 = time.time()
+            rep.planner.set_tree_yaw(float(self.tree_yaws[e]))
+            world = rep.world().with_cylinder(float(xy[e, 0]), float(xy[e, 1]), c["radius"], c["height"])
+            if c.get("compare") and e > 0:
+                pass  # same scene in every env: plan once
+            else:
+                out = rep.run(world, obj_traj=trajs[e], repair=self.repair)
+            good = out["q"] is not None
+            q, nom = (out["q"], out["nominal"]) if good else (out["q_baseline"], out["nominal_baseline"])
+            shown = "planned"
+            if c.get("compare") and e == 0:
+                q, nom, good, shown = out["q_baseline"], out["nominal_baseline"], True, "generator"
+            qs.append(onp.asarray(q))
+            objs.append(rep.objects_from_q(q, nom))
+            tcps.append(onp.asarray(rep.fk_tcp(jnp_asarray(q)).wxyz_xyz))
+            ok.append(good)
+            status.append(out["status"])
+            chk = out["before"] if shown == "generator" else out.get("after") or out["before"]
+            log.append(dict(episode=self.episodes, env=e, obstacle_xy=xy[e].tolist(), status=out["status"], shown=shown,
+                            obstacle_clearance_per_step=onp.round(onp.asarray(chk["obstacle_clearance_per_step"]), 4).tolist(),
+                            generator_ok=bool(out["before"]["ok"]), baseline_status=out["baseline_status"],
+                            baseline_min_clearance=out["before"]["min_obstacle_clearance"],
+                            min_clearance=out["after"]["min_obstacle_clearance"] if out.get("after") else None,
+                            grasp_azimuth=int(nom["grasp_yaw_k"]), tree_yaw_deg=round(float(self.tree_yaws[e]), 2),
+                            time_s=round(time.time() - t0, 2)))
+        self._place_obstacles(xy, c["height"], c.get("origin", "base"))
+        return qs, objs, tcps, ok, status, log
+
     def _turn_trees(self, yaws_deg, post_xy):
         """Rotate each env's mug tree prim about the post axis (its mesh is in the base frame)."""
         from pxr import Gf
@@ -138,6 +192,12 @@ class UR5eTapePnP(UR5eCubePnP):
             tr.Set(vec(*[float(x) for x in t]))
             quat, qv = (Gf.Quatd, Gf.Vec3d) if "d" in str(orient.GetTypeName()) else (Gf.Quatf, Gf.Vec3f)
             orient.Set(quat(float(onp.cos(psi / 2)), qv(0.0, 0.0, float(onp.sin(psi / 2)))))
+
+    def _fail(self, mask: torch.Tensor, reason: str):
+        if self.ring_obstacle is not None and self.ring_obstacle.get("compare"):
+            mask = mask.clone()
+            mask[0] = False  # figure mode: keep the plain generator's (colliding) motion for display
+        super()._fail(mask, reason)
 
     def _write_roll(self, obj: torch.Tensor):
         state = torch.zeros_like(self.cube.data.root_state_w)

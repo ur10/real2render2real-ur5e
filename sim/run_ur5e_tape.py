@@ -27,6 +27,11 @@ parser.add_argument("--start-offset", type=float, nargs=2, default=(0.0, 0.0),
                     help="shift every sampled start (m), e.g. into reach")
 parser.add_argument("--tree-yaw", type=float, nargs=2, default=(250.0, 250.0),
                     help="range for turning the mug tree about its post (deg); see sweep_tree_yaw.py")
+parser.add_argument("--obstacle-xy", type=float, nargs=2, default=None,
+                    help="place the scanned bottle here (base frame) and plan with ring_repair.py")
+parser.add_argument("--no-repair", action="store_true", help="with --obstacle-xy: reject colliding envs instead of repairing")
+parser.add_argument("--compare", action="store_true",
+                    help="figures: env 0 replays the plain generator's motion next to the repaired one (--num-envs 2 --no-augment)")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 args.headless, args.enable_cameras = True, True
@@ -35,7 +40,9 @@ simulation_app = AppLauncher(args).app
 import jax  # noqa: E402
 jax.config.update("jax_cuda_visible_devices", args.device.split(":")[-1] if args.device.startswith("cuda:") else "0")
 
-from real2render2real.isaaclab_viser.configs.scene_configs.ur5e_tape_scene_cfg import UR5eNutCfg, UR5eTapeCfg  # noqa: E402
+from real2render2real.isaaclab_viser.configs.scene_configs.ur5e_tape_scene_cfg import (  # noqa: E402
+    UR5eNutCfg, UR5eNutObstacleCfg, UR5eTapeCfg, UR5eTapeObstacleCfg,
+)
 from real2render2real.isaaclab_viser.ur5e_simulators.ur5e_tape_pnp import UR5eTapePnP  # noqa: E402
 
 import os  # noqa: E402
@@ -49,6 +56,13 @@ if args.task == "nut":
                             grasp_style="outer", tcp_above=0.017))
 else:
     cfg_cls, task_kw = UR5eTapeCfg, dict(tree_yaw_range=tuple(args.tree_yaw), start_offset_xy=tuple(args.start_offset))
+task_kw["task"] = args.task
+if args.obstacle_xy is not None:
+    import json as _json
+    cfg_cls = UR5eNutObstacleCfg if args.task == "nut" else UR5eTapeObstacleCfg
+    meta = _json.load(open(repo / "data/obstacles/sauce_bottle/obstacle.json"))
+    task_kw.update(obstacle=dict(radius=meta["radius"], height=meta["height"], origin=meta["origin"],
+                                 xy=tuple(args.obstacle_xy), compare=args.compare), repair=not args.no_repair)
 sim, code = None, 0
 try:
     sim = UR5eTapePnP(

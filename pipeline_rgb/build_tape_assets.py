@@ -3,6 +3,8 @@
   data/ur_tape/tape_band.obj   the blue tape band (r_core..R, width w), roll frame (z = axis)
   data/ur_tape/tape_core.obj   the white core ring (r_in..r_core)
   data/ur_tape/mug_tree.obj    post, base disc and branches, robot base frame
+  data/ur_nut/stand_*.obj      block, base nut, spacers and rod, robot base frame (3D viewer; Isaac
+                               builds the stand from primitives, ur5e_tape_scene_cfg.py)
 
 Then convert each to USD (not instanceable; the tree is static, the roll parts are kinematic bodies):
     for m in tape_band tape_core; do scripts/ur_cube/isaac_run.sh outputs/ur_tape/logs/usd_$m.log "Generated USD" \
@@ -43,6 +45,20 @@ def main(out_dir: Path = Path("data/ur_tape"), dims: Path = Path("outputs/ur_tap
         parts.append(rod(b["root"], b["tip"], b["radius"], 16))
     tree = trimesh.util.concatenate(parts)
     tree.export(out_dir / "mug_tree.obj")
+
+    nut_scene = Path("outputs/ur_nut/scene.json")
+    if nut_scene.exists():
+        b = json.loads(nut_scene.read_text())["bolt_stand"]
+        xy = b["xy"]
+        sx, sy, sz = b["block"]["size"]
+        block = trimesh.creation.box(extents=(sx, sy, sz))
+        block.apply_transform(trimesh.transformations.rotation_matrix(b["block"]["yaw"], [0, 0, 1]))
+        block.apply_translation([*xy, (b["block"]["z0"] + b["block"]["z1"]) / 2])
+        parts = [block] + [rod([*xy, b[k]["z0"]], [*xy, b[k]["z1"]], b[k]["radius"], 32) for k in ("base", "spacers", "rod")]
+        Path("data/ur_nut").mkdir(parents=True, exist_ok=True)
+        for name, part in zip(("block", "base", "spacers", "rod"), parts):
+            part.export(Path("data/ur_nut") / f"stand_{name}.obj")
+        print("bolt stand parts written to data/ur_nut/stand_*.obj")
     print(f"band {len(band.faces)} faces, core {len(core.faces)}, tree {len(tree.faces)} "
           f"(bounds {tree.bounds.round(3).tolist()})")
 

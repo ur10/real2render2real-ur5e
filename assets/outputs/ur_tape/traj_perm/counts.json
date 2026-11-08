@@ -1,0 +1,42 @@
+{
+ "placements": 8,
+ "trajectories": 48,
+ "plain_collide": 48,
+ "kept_filter_only": 0,
+ "kept_with_repair": 29,
+ "by_object": {
+  "sauce_bottle": {
+   "placements": 3,
+   "collide": 18,
+   "kept": 15,
+   "shown": [
+    6,
+    6,
+    6,
+    6
+   ]
+  },
+  "mug": {
+   "placements": 2,
+   "collide": 12,
+   "kept": 5,
+   "shown": [
+    6,
+    4,
+    4,
+    6
+   ]
+  },
+  "cereal_box": {
+   "placements": 3,
+   "collide": 18,
+   "kept": 9,
+   "shown": [
+    6,
+    5,
+    5,
+    6
+   ]
+  }
+ }
+}
