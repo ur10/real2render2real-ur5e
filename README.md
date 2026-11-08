@@ -339,10 +339,6 @@ uv run --no-project --with viser==0.2.23 --with trimesh --with pillow --with tyr
 Tested on Ubuntu 22.04, driver 580, Isaac Sim 4.5 / IsaacLab, RTX 3080 Ti (12 GB). One GPU job per
 card: the tracker and Isaac Sim don't fit together on 12 GB.
 
-## Status
-
-Policies are trained and evaluated in the twin; the robot motion is not yet executed on hardware.
-Next: real-robot trials of the trained policies.
 
 ## Acknowledgements
 
