@@ -2,8 +2,7 @@
 
 A single human demonstration on a real UR5e bench, recorded by two calibrated RealSense cameras and
 a phone scan, turned into robot demonstrations for a UR5e + Robotiq 2F-85 without teleoperation.
-This is a port of [Real2Render2Real](https://github.com/uynitsuj/real2render2real) (released for
-YuMi and Franka) to a new robot, new cameras and my own bench.
+This work is built on top of [Real2Render2Real](https://github.com/uynitsuj/real2render2real)
 
 **Project page with videos and an interactive 3D replay: https://ur10.github.io/projects/real2render2real/**
 
