@@ -1,14 +1,20 @@
 # Real-to-Sim Robot Learning with a Gaussian-Splat Twin
 
-This project turns a real UR5e workspace into a calibrated environment for generating robot
-training data. A Gaussian-splat scan captures the scene; calibrated RGB-D cameras recover metric
-geometry and object motion. One human demonstration per task becomes varied robot trajectories
-and rendered observations.
+A person moves an object to its goal once. This project turns that recorded example into
+many robot demonstrations, then tests whether a visual policy trained on them can handle
+new situations.
 
-The real-to-sim stage aligns reconstruction, cameras, and robot kinematics. The sim-to-real
-objective motivates retaining the physical camera geometry and embodiment while randomizing
-appearance and repairing trajectories around new obstacles. Reported policy experiments
-measure closed-loop behavior in the rendered twin.
+**Input:** a phone scan of the workspace and one human demonstration per task, recorded
+by two calibrated cameras. **Output:** robot camera images paired with joint targets,
+generated under different starting positions, lighting, camera poses, and obstacles.
+
+The pipeline reconstructs the bench, tracks the object, chooses a robot grasp, and plans
+UR5e motion that reproduces the task. Gaussian splatting supplies the scene appearance;
+calibration, tracking, and motion planning make the reconstruction useful for robot learning.
+An obstacle-repair step adds detours when a new object blocks the demonstrated path.
+
+This is a real-to-sim data pipeline motivated by sim-to-real learning. The reported policy
+experiments run in a rendered, kinematic twin.
 
 My contributions include bench calibration, object tracking, UR5e integration, and trajectory
 repair around added obstacles. The pipeline covers cube transfer, hanging a tape roll on a
