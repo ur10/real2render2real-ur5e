@@ -1,8 +1,31 @@
 # One human demo → robot demonstrations, on a UR5e
 
-A single human demonstration on a real UR5e bench, recorded by two calibrated RealSense cameras and
-a phone scan, turned into robot demonstrations for a UR5e + Robotiq 2F-85 without teleoperation.
-This work is built on top of [Real2Render2Real](https://github.com/uynitsuj/real2render2real)
+Collecting robot demonstrations through teleoperation is time-consuming. This project adapts
+[Real2Render2Real](https://github.com/uynitsuj/real2render2real) to a UR5e + Robotiq 2F-85
+bench so one human demonstration per task can become a varied robot training set.
+A phone scan supplies the scene, two calibrated cameras recover the object motion, and
+the generator produces robot trajectories and rendered observations under new conditions.
+
+My contributions include bench calibration, object tracking, UR5e integration, and trajectory
+repair around added obstacles. The pipeline covers cube transfer, hanging a tape roll on a
+mug tree, and placing a nut on a bolt.
+
+## What the experiments show
+
+For the cube task, the same policy architecture was evaluated on 96 held-out clean scenes
+and 96 blocked-route scenes in the twin:
+
+- **More varied demonstrations:** clean-scene success rose from 3/96 with the original
+  demonstration to 90/96 with 400 generated rollouts.
+- **Learning detours:** training with repaired obstacle demonstrations achieved 82/96
+  blocked-route successes, compared with 4/96 for filtered obstacle demonstrations.
+- **Current scope:** policy evaluation is in a kinematic twin, where objects attach to the
+  gripper without simulated contact dynamics. Physical robot policy trials are future work.
+  The tape and nut tasks have generated demonstrations and planning results, but no trained
+  policy evaluation yet.
+
+The full comparison and success definition appear below. Counts of generated trajectories
+passing feasibility checks describe planning validity, separately from policy success.
 
 **Project page with videos and an interactive 3D replay: https://ur10.github.io/projects/real2render2real/**
 
@@ -18,7 +41,7 @@ same frame, and the UR5e replay rendered in IsaacLab from the same calibrated ca
 | **Scan** | Gaussian splat of the bench from a phone video. The RealSense views are registered into the scan's COLMAP model to recover metric scale and the scan-to-robot transform. | Two independent scale estimates agree to 0.2%; 4 mm median registration residual; camera centres within 8 mm |
 | **Track** | The cube's pose per frame from both depth cameras: the scanned cube model fitted with ICP, re-detected on fast lifts, kept consistent across the cube's 24 symmetric orientations. | Box overlay stays on the cube in the camera that was not used for tracking |
 | **Embody** | UR5e + Robotiq 2F-85 URDF in the calibrated base frame, gripper mount fitted against the real images. | Simulated cameras and robot line up with the real ones |
-| **Render** | IsaacLab kinematic replay: IK follows a grasp on the tracked cube; start pose jitter + trajectory interpolation, randomized lighting, camera and table appearance; a feasibility filter rejects IK error, joint-limit violations and finger–fixture contact. | 12 / 12 randomized rollouts pass |
+| **Render** | IsaacLab kinematic replay: IK follows a grasp on the tracked cube; start pose jitter + trajectory interpolation, randomized lighting, camera and table appearance; a feasibility filter rejects IK error, joint-limit violations and finger–fixture contact. | 12 / 12 rollouts pass the initial feasibility check |
 | **Repair** | Insert an object the demo never saw (a scanned bottle), check the generated motion against it and re-optimize only the free segments; the grasp, lift-off, set-down and release stay as generated. | 21 bottle placements on the route: 5 valid demos with the filter alone, 17 with repair |
 
 ![Randomized rollouts generated from the one demonstration](docs/randomized.jpg)
