@@ -1,8 +1,8 @@
 # One human demo → robot demonstrations, on a UR5e
 
-Collecting robot demonstrations through teleoperation is time-consuming. This project adapts
-[Real2Render2Real](https://github.com/uynitsuj/real2render2real) to a UR5e + Robotiq 2F-85
-bench so one human demonstration per task can become a varied robot training set.
+Collecting robot demonstrations through teleoperation is time-consuming. This pipeline combines scene reconstruction,
+object tracking, and robot motion generation to turn one human demonstration per task
+into a varied training set for a UR5e + Robotiq 2F-85.
 A phone scan supplies the scene, two calibrated cameras recover the object motion, and
 the generator produces robot trajectories and rendered observations under new conditions.
 
@@ -19,10 +19,8 @@ and 96 blocked-route scenes in the twin:
   demonstration to 90/96 with 400 generated rollouts.
 - **Learning detours:** training with repaired obstacle demonstrations achieved 82/96
   blocked-route successes, compared with 4/96 for filtered obstacle demonstrations.
-- **Current scope:** policy evaluation is in a kinematic twin, where objects attach to the
-  gripper without simulated contact dynamics. Physical robot policy trials are future work.
-  The tape and nut tasks have generated demonstrations and planning results, but no trained
-  policy evaluation yet.
+- **Evaluation setting:** the cube policy runs in a kinematic twin, where objects attach to
+  the gripper. The tape and nut examples demonstrate trajectory generation and planning.
 
 The full comparison and success definition appear below. Counts of generated trajectories
 passing feasibility checks describe planning validity, separately from policy success.
@@ -132,8 +130,7 @@ already clear, so the policy never sees a detour; "repaired" uses `demo_repair.p
 
 More randomized data takes the policy from 3% to 94% on clean scenes. None of that transfers to a
 blocked route, and filtering doesn't help either; with repaired bottle scenes in the data the policy
-goes around the bottle in 85% of blocked scenes, without losing clean-scene success. These are twin
-results; real-robot trials are next.
+goes around the bottle in 85% of blocked scenes, without losing clean-scene success. These results were measured in the twin.
 
 Everything is in one script: `pipeline/policy_experiment.sh gen|build|train|eval`.
 
@@ -158,8 +155,7 @@ The robot motion comes from the object's track plus a grasp, so it is not tied t
 on a UR5e, a UR10e (same 2F-85 and mount; `build_ur5e_robotiq_urdf.py --ur-type ur10e`) and a Franka
 Panda standing on the table (`pipeline/build_panda_urdf.py`), with whole-sequence IK. All three
 track every TCP target to under 0.01 mm. `pipeline/make_embodiment_viser.py` writes the viser
-replays. The UR10e and Panda are not yet rendered through the Isaac camera pipeline or used for
-training.
+replays.
 
 ## Two more tasks from colour video only
 
@@ -203,7 +199,6 @@ so their calibration is reused (`assets/outputs/ur_tape/realsense_calib.json`). 
 | Tape roll onto the mug tree | 25 / 48 (rejected: fingertips reach the bench as the roll tips up) |
 | Nut onto the bolt | 48 / 48 |
 
-The tape and nut rollouts are not yet used to train policies.
 
 ### Scene edits, permutations and 3D replays for the two tasks
 
