@@ -1,10 +1,14 @@
-# One human demo → robot demonstrations, on a UR5e
+# Real-to-Sim Robot Learning with a Gaussian-Splat Twin
 
-Collecting robot demonstrations through teleoperation is time-consuming. This pipeline combines scene reconstruction,
-object tracking, and robot motion generation to turn one human demonstration per task
-into a varied training set for a UR5e + Robotiq 2F-85.
-A phone scan supplies the scene, two calibrated cameras recover the object motion, and
-the generator produces robot trajectories and rendered observations under new conditions.
+This project turns a real UR5e workspace into a calibrated environment for generating robot
+training data. A Gaussian-splat scan captures the scene; calibrated RGB-D cameras recover metric
+geometry and object motion. One human demonstration per task becomes varied robot trajectories
+and rendered observations.
+
+The real-to-sim stage aligns reconstruction, cameras, and robot kinematics. The sim-to-real
+objective motivates retaining the physical camera geometry and embodiment while randomizing
+appearance and repairing trajectories around new obstacles. Reported policy experiments
+measure closed-loop behavior in the rendered twin.
 
 My contributions include bench calibration, object tracking, UR5e integration, and trajectory
 repair around added obstacles. The pipeline covers cube transfer, hanging a tape roll on a
