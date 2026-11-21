@@ -46,13 +46,25 @@ same frame, and the UR5e replay rendered in IsaacLab from the same calibrated ca
 
 | Step | What happens | Result on this bench |
 |---|---|---|
-| **Scan** | Gaussian splat of the bench from a phone video. The RealSense views are registered into the scan's COLMAP model to recover metric scale and the scan-to-robot transform. | Two independent scale estimates agree to 0.2%; 4 mm median registration residual; camera centres within 8 mm |
+| **Scan** | COLMAP poses and a Gaussian splat (splatfacto) of the bench from a phone video; the cube is selected with GARField (SAM) + DiG (DINOv2), cut in the robot frame and meshed with SuGaR. The RealSense views are registered into the scan's COLMAP model to recover metric scale and the scan-to-robot transform. | Two independent scale estimates agree to 0.2%; 4 mm median registration residual; camera centres within 8 mm |
 | **Track** | The cube's pose per frame from both depth cameras: the scanned cube model fitted with ICP, re-detected on fast lifts, kept consistent across the cube's 24 symmetric orientations. | Box overlay stays on the cube in the camera that was not used for tracking |
 | **Embody** | UR5e + Robotiq 2F-85 URDF in the calibrated base frame, gripper mount fitted against the real images. | Simulated cameras and robot line up with the real ones |
 | **Render** | IsaacLab kinematic replay: IK follows a grasp on the tracked cube; start pose jitter + trajectory interpolation, randomized lighting, camera and table appearance; a feasibility filter rejects IK error, joint-limit violations and finger–fixture contact. | 12 / 12 rollouts pass the initial feasibility check |
 | **Repair** | Insert an object the demo never saw (a scanned bottle), check the generated motion against it and re-optimize only the free segments; the grasp, lift-off, set-down and release stay as generated. | 21 bottle placements on the route: 5 valid demos with the filter alone, 17 with repair |
 
 ![Randomized rollouts generated from the one demonstration](docs/randomized.jpg)
+
+### The model stack: phone video to simulation asset
+
+![The cube from phone video to simulation asset](docs/model_stack.jpg)
+
+Before any motion is planned, a chain of learned models turns the phone video into assets:
+COLMAP poses the frames, splatfacto fits a 450k-Gaussian splat, GARField (SAM masks) and DiG
+(DINOv2 features) make the cube selectable, and SuGaR turns its Gaussians into a mesh, which
+becomes the ICP template and the IsaacLab cube. GARField could not separate the cube from its
+fixture, so the selection is cut in the robot base frame (724 → 493 Gaussians) before SuGaR.
+**[docs/model_stack.md](docs/model_stack.md)** documents each model, what it produced here, where
+it failed, and where its output lands in a training sample.
 
 ### Why the tracker is different from the paper
 
