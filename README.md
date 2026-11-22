@@ -1,28 +1,110 @@
-# Real-to-Sim Robot Learning with a Gaussian-Splat Twin
+# Real2Render: a reusable pipeline for robot training data
 
-A person moves an object to its goal once. This project turns that recorded example into
-many robot demonstrations, then tests whether a visual policy trained on them can handle
-new situations.
+Bootstrap a real-to-sim learning task with minimal real-world data: a workspace scan and
+one human demonstration per task. Reuse reconstruction, tracking, robot motion generation,
+augmentation, rendering, and dataset tools to turn that capture into varied training examples.
+The aim is to reduce the setup and repeated collection needed to get a new task started.
 
-**Input:** a phone scan of the workspace and one human demonstration per task, recorded
-by two calibrated cameras. **Output:** robot camera images paired with joint targets,
-generated under different starting positions, lighting, camera poses, and obstacles.
+**Input:** a phone scan, calibrated cameras, and an object-motion demonstration.
+**Output:** robot camera images paired with joint targets, generated under different object
+starts, viewpoints, lighting, appearances, and obstacle placements.
 
-The pipeline reconstructs the bench, tracks the object, chooses a robot grasp, and plans
-UR5e motion that reproduces the task. Gaussian splatting supplies the scene appearance;
-calibration, tracking, and motion planning make the reconstruction useful for robot learning.
-An obstacle-repair step adds detours when a new object blocks the demonstrated path.
+Cube transfer, hanging a tape roll on a mug tree, and placing a nut on a bolt are three
+adaptation examples of this workflow. They demonstrate different object models, sensing
+inputs, grasps, and fixture constraints. The supplied assets let you reproduce the bench
+example before collecting your own data.
 
-This is a real-to-sim data pipeline motivated by sim-to-real learning. The reported policy
-experiments run in a rendered, kinematic twin.
+This repository extends upstream Real2Render2Real with bench calibration and tracking,
+UR5e integration, obstacle-aware trajectory repair, and policy evaluation. It is designed
+as a general-purpose starting point; new tasks still require task-specific geometry,
+tracking, grasp definitions, and constraints. Policy results here are for the cube in a
+rendered kinematic twin. Tape and nut results demonstrate planning and data generation.
 
-**[Watch the whole pipeline in 80 seconds](https://ur10.github.io/projects/real2render2real/#r2-pipeline)**:
-every stage from the phone video to the trained policy, with the model used and the numbers it
-produced, for all three tasks.
+## Reusable capabilities
 
-My contributions include bench calibration, object tracking, UR5e integration, and trajectory
-repair around added obstacles. The pipeline covers cube transfer, hanging a tape roll on a
-mug tree, and placing a nut on a bolt.
+| Capability | What you can vary or reuse | Implementation |
+|---|---|---|
+| Scan to assets | Reconstruct appearance; select and mesh scanned objects, or use measured shapes | [Model stack](docs/model_stack.md), `pipeline_rgb/tape_model.py` |
+| Track the task | RGB-D ICP for the cube; calibrated two-view silhouette fitting for rings | `pipeline/track_cube_rgbd.py`, `pipeline_rgb/track_tape_rgb.py` |
+| Expand trajectories | Sample object starts and yaw; interpolate the path while retaining the goal | `sim/ur5e_simulators/ur5e_cube_pnp.py`, `pipeline/make_traj_permutations.py` |
+| Perturb observations | Lighting, camera pose, table appearance, background yaw | `sim/ur5e_simulators/ur5e_cube_pnp.py` |
+| Edit the scene | Insert scanned obstacles with cylinder or box proxies; vary placements | `pipeline/prep_gso_obstacle.py`, `pipeline/make_traj_permutations.py` |
+| Add valid detours | Repair free trajectory segments, preserve critical phases, retry grasps, reject invalid motion | `pipeline/demo_repair.py`, `pipeline_rgb/ring_repair.py` |
+| Retarget embodiment | Reuse object motion with UR5e, UR10e, and Panda kinematics | `pipeline/retarget_embodiment.py` |
+| Export and learn | Log RGB and joints, pack datasets, train a behavior-cloning baseline, evaluate held-out scenes | `pipeline/build_policy_dataset.py`, `pipeline/train_policy.py`, `sim/eval_ur5e_cube_policy.py` |
+
+## Start with the supplied example
+
+1. Follow [Install](#install), including upstream environment setup, then build the robot
+   and object USD assets in [Reproduce, step 3](#reproduce). The supplied bench files let
+   you skip capture and tracking for this first example.
+2. From **this repository**, run the commands below. The launcher is in this repository;
+   its first argument points to the installed upstream checkout.
+3. Inspect the generated views and joint data before increasing the generation count.
+   Episode limits count attempts; rejected trajectories do not become training examples.
+
+```bash
+# Replay: no start jitter. Environment and USD asset setup must already be complete.
+OMNI_KIT_ACCEPT_EULA=YES bash launchers/generate.sh \
+    ./real2render2real ./output_data/replay 1 1 --no-augment
+
+# New starts and randomized observations
+OMNI_KIT_ACCEPT_EULA=YES bash launchers/generate.sh \
+    ./real2render2real ./output_data/augmented 2 6
+
+# Add a simple obstacle without downloading a scanned obstacle asset
+OMNI_KIT_ACCEPT_EULA=YES bash launchers/generate.sh \
+    ./real2render2real ./output_data/repaired 2 6 \
+    --obstacle --obstacle-asset cylinder
+```
+
+Successful rollouts contain camera RGB folders and `robot_data/robot_data.h5` with
+`joint_angles`. The dataset packer produces `images.npy`, `qpos.npy`, `episode_ends.npy`,
+and `meta.json`; the baseline learns 16-step action chunks from both views and joint state.
+See [Reproduce](#reproduce) for dataset packing, training, task-specific generation and replays.
+
+## Adapt the pipeline to your task
+
+| Supply or adapt | Reuse from the examples |
+|---|---|
+| Metric scene calibration and camera poses | Scan registration, background extraction, calibrated rendering |
+| Object and fixture geometry, object pose sequence | Asset conversion, tracking approaches, trajectory interpolation |
+| Robot URDF, base pose, TCP frame and grasp candidates | Whole-sequence IK and candidate search |
+| Collision geometry and task-critical phases | Collision checking and repair of free segments |
+| Sampling ranges and scene edits | Start perturbations, appearance variation, obstacle placement |
+| Observations, actions and success criterion | Logging, dataset packing, policy and evaluation structure |
+
+The cube trajectory JSON uses `T_base_obj` (one `[qw,qx,qy,qz,x,y,z]` pose per step,
+translations in metres), `grasp_T_obj_tcp`, and `gripper_close`. This object-centric
+representation is the reusable link between perception and planning. For a new task,
+inspect the task adapters rather than assuming a trajectory file alone is sufficient:
+`pipeline_rgb/ring_repair.py` extends `DemoRepair` with ring collision geometry, grasp
+candidates, fixtures, and pinned segments. `pipeline_rgb/tape_plan.py` supplies the ring
+planner and its fixture checks. Robot retargeting examples validate kinematic tracking;
+a full new-robot data generator also needs scene, rendering, logging, and collision integration.
+
+A practical sequence is to validate the object track in both views, plan one reachable
+motion, check its grasp and task-critical segments, render a single rollout, and only then
+expand starts, scene variations, and obstacles. Contact-rich or deformable tasks require
+additional modeling: the current replay attaches the object to the gripper and does not
+simulate contact dynamics. Physical-robot transfer requires separate evaluation.
+
+## Models and learning methods
+
+- **Scene and asset learning:** Gaussian Splatting (`splatfacto`) reconstructs appearance;
+  GARField uses SAM masks for grouping, DiG distils DINOv2 features onto Gaussians, and
+  SuGaR extracts a surface mesh. This asset chain is used for the cube; the RGB-only ring
+  tasks use measured shapes. [Model roles, outputs and limitations](docs/model_stack.md).
+- **Geometric estimation and optimization:** COLMAP and metric registration align the
+  workspace; ICP or silhouette fitting tracks objects; JAX kinematics and jaxls
+  Levenberg–Marquardt optimization generate and repair robot trajectories. RSRD was
+  tested and replaced by ICP for the cube; HaMeR does not supply the grasps used here.
+- **Data augmentation:** trajectory interpolation expands actions; domain randomization
+  expands scene observations; repair supplies obstacle-avoidance demonstrations.
+- **Imitation learning:** a shared ImageNet-pretrained ResNet-18 with per-camera spatial
+  softmax heads encodes images; an MLP encodes joint state, and an MLP predicts 16 joint
+  action steps. Behavior cloning uses normalized L1 loss, AdamW, and image translation,
+  brightness and contrast augmentation. Receding-horizon execution closes the loop.
 
 ## What the experiments show
 
@@ -309,8 +391,8 @@ python dependencies/IsaacLab/scripts/tools/convert_mesh.py data/ur_cube/cube_mes
     data/ur_cube/usd_noinst/cube_mesh.usd --collision-approximation none --mass 1.0 --headless
 
 # 4. Generate demonstrations (RGB from both cameras + joint data per rollout)
-OMNI_KIT_ACCEPT_EULA=YES launchers/generate.sh . output_data/ur5e_randomized 2 6
-OMNI_KIT_ACCEPT_EULA=YES launchers/generate.sh . output_data/ur5e_demo_replay 1 1 --no-augment
+OMNI_KIT_ACCEPT_EULA=YES ../launchers/generate.sh . output_data/ur5e_randomized 2 6
+OMNI_KIT_ACCEPT_EULA=YES ../launchers/generate.sh . output_data/ur5e_demo_replay 1 1 --no-augment
 
 # 5. Figures and the interactive replay
 python scripts/ur_cube/make_triptych.py --rollout <replay rollout> \
