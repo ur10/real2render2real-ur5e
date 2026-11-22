@@ -1,11 +1,32 @@
-# The model stack: from a phone video to a simulation asset
+# The model stack: from a phone video to simulation assets, task by task
 
 Real2Render2Real turns one human demonstration into robot training data. Before any robot motion
-is planned, a chain of learned models turns a phone video of the bench into things a simulator and
-a tracker can use: camera poses, a Gaussian splat, an object selection, and a mesh. This page
-documents that chain for the UR5e cube task: which model does what, what it produced on this
-bench, where it failed, what replaced it, and where each output ends up in a generated training
-sample.
+is planned, the bench and each object have to exist as geometry in the robot's frame. This page
+documents how that happens for the three UR5e tasks: which model does what, what it produced on
+this bench, where it failed, what replaced it, and where each output ends up in a generated
+training sample. An 80-second video of the whole pipeline, with the numbers at each stage, is at the
+top of the [project page](https://ur10.github.io/projects/real2render2real/#r2-pipeline)
+(`pipeline/make_pipeline_renders.py`, `pipeline/make_pipeline_video.py`).
+
+## Task by task
+
+The bench comes from one phone scan for all three tasks. The object models depend on what was
+recorded: the cube was in the scan and its demo has depth, so it goes through the learned chain;
+the tape roll and the nut were recorded later, in colour only and never scanned, so they are
+measured shapes fitted to their outlines in the two calibrated views.
+
+| Stage | Cube (RGB-D demo) | Tape roll (RGB demo) | Nut (RGB demo) |
+|---|---|---|---|
+| Bench | **COLMAP + Gaussian splat**, registered to the robot base frame (shared) | same scan; the cube's fixtures painted out of the 3D views | same |
+| Find the object | **GARField (SAM) + DiG (DINOv2)**, then a metric cut | blue HSV mask per view, skin pixels ignored | green HSV mask; the stand's green spacers ignored |
+| Object shape | **SuGaR** mesh → 3,965-triangle asset | measured roll: R 51.4 mm, core 41.3 mm, 24.0 mm wide | measured ring: 32.2 mm across, 21.4 mm hole, 15.7 mm thick |
+| Fixtures | table plane and fixtures from RGB-D | mug tree triangulated from both views | bolt stand triangulated and fitted |
+| Track | two-view depth ICP of the SuGaR mesh (RSRD drifted) | two-view silhouette fit, 5-DoF | silhouette fit + one-view bridge (1.3 s) |
+| Clean-up | nearest of 24 symmetric orientations; levelled rests | end-for-end symmetry; release 4.5 cm onto the branch | centred on the rod, lowered from above the tip |
+| In the rendered images | SuGaR mesh (texture's mean colour) + splat dome light | measured meshes in measured colours + splat dome light | same |
+| Valid rollouts | 448 / 448 | 25 / 48 | 48 / 48 |
+
+The sections below go through the cube's chain model by model, then the measured shapes.
 
 ![The cube from phone video to simulation asset, drawn from one phone-scan camera](model_stack.jpg)
 
@@ -16,7 +37,7 @@ tape. (4) The same Gaussians cut above the fixture top in the robot base frame: 
 (5) SuGaR's surface mesh of those Gaussians. (6) The cleaned mesh in the cube frame, in metres,
 which the ICP tracker and IsaacLab use. Made by `pipeline/make_model_stack_figure.py`.*
 
-## The chain at a glance
+## The cube's chain at a glance
 
 | # | Stage | Model | What goes in → what comes out | On this bench |
 |---|---|---|---|---|
@@ -154,11 +175,37 @@ Real2Render2Real samples grasps near the human's hand (HaMeR MANO meshes). The c
 geometric instead: from above, at its four symmetric yaws. HaMeR is installed and patched
 (`patches/hamer_helper.patch`) but does not feed the data.
 
-### The tape and nut tasks
+## The tape and nut: measured shapes from colour video
 
-Those two demos are colour video only, and the objects are thin, symmetric rings. They skip steps
-3–8: each object is a measured analytic shape fitted to its outline in both views
-(`pipeline_rgb/`). The bench splat still provides their background dome and 3D replays.
+![Measured shapes: the tape roll at rest and on the tree, the mug tree, and the bolt stand](measured_shapes.jpg)
+
+*Fitted models drawn over the RealSense images: the tape roll at rest and hanging on the tree (the
+two frames of its size fit), the triangulated mug tree (right camera), and the bolt stand with the
+nut's final pose (front camera).*
+
+Neither object is in the phone scan, and their demos have no depth, so steps 3–8 have nothing to
+work on. Each object is a parametric ring instead (`pipeline_rgb/tape_model.py`): an annulus of outer
+radius R, hole or core radius, and width, whose surfaces are sampled densely (under 0.5 px apart at
+the bench's ~1 m), projected into both calibrated views and z-buffered so the core hides the band
+behind it, as in the real images. The cost is 1 − IoU between the rendered label and an HSV colour
+mask, with skin pixels ignored.
+
+- **Size** is fitted once, on frames where the object rests in two different places: the roll flat
+  on the bench and hanging on the tree (`fit_tape_dims.py`: R 51.4 mm, core 41.3 mm, 24.0 mm wide);
+  the nut on the bench and on the rod (`fit_ring_dims.py`: 32.2 mm across, 21.4 mm hole, 15.7 mm).
+- **Tracking** is the same fit run frame by frame with the size fixed (`track_tape_rgb.py`, about
+  8 s per moving frame), starting from the previous pose. Two views about 90° apart pin down the
+  centre and the axis; the spin about a ring's axis is unobservable and irrelevant, so a pose has 5
+  DoF. While the hand hid the nut from the right camera for about 1.3 s, the centre stays on the
+  front camera's ray through the colour blob and its depth is interpolated between the two-view
+  anchors (`bridge_one_view.py`).
+- **Fixtures** come from points picked in both views: the mug tree's post, base and branches
+  (`measure_mug_tree.py`, correspondences within 1 px of the epipolar lines, one branch tip at
+  2 px) and the bolt stand's rod, spacers, base nut and block (`measure_bolt_stand.py`).
+
+The same measured shapes become the meshes IsaacLab renders (`build_tape_assets.py`) and the
+templates the tracker fits, so for these two tasks they play SuGaR's role in both the labels and
+the images.
 
 ## Technical impact: where each model lands in a training sample
 
@@ -175,6 +222,7 @@ model reaches the sample through one of three paths:
 | SuGaR | Object shape | **ICP template** | **The cube's silhouette** | — |
 | RSRD | Object-frame convention | — (replaced by ICP) | — | — |
 | HaMeR | — | — | — | — |
+| Measured shapes (tape, nut) | Object and fixture shapes | **Silhouette-fit template** | **The rendered roll, nut and fixtures** | Overlays on both views |
 
 Three things follow from the table.
 
@@ -185,7 +233,7 @@ Three things follow from the table.
    is not. That is why the registration has two independent scale estimates and the track is
    checked by overlaying the fitted cube on both camera views. Appearance from the splat and the SuGaR mesh decides only what the policy sees, and the
    randomization (lighting, camera pose, table look) is built to make that dependence weaker.
-2. **SuGaR is the bridge.** It is the only step that turns Gaussians into a surface, and its mesh
+2. **SuGaR is the bridge (cube).** It is the only step that turns Gaussians into a surface, and its mesh
    is the one model output that is itself in both the action labels (as the ICP template) and the
    images (as the rendered cube). Without it a splat-scanned object cannot be tracked by ICP or loaded into
    IsaacLab; with it the asset comes from the same phone video as the background, with no CAD.
@@ -194,7 +242,8 @@ Three things follow from the table.
    failures were fixed with the metric frame from step 1: a height cut for the selection, and
    two-view depth ICP for the motion. The learned models still do the work nothing geometric
    could: camera poses from a hand-held video, a photoreal bench, a click-to-select object and a
-   surface from Gaussians.
+   surface from Gaussians. Where there was no scan and no depth (tape, nut), analysis by synthesis
+   with measured shapes recovered the motion from colour video alone.
 
 What this bought on this bench: a simulator-ready cube and a photoreal background from one phone
 video, with no CAD and no teleoperation. GARField, DiG and SuGaR took roughly 35, 22 and 45 minutes
@@ -229,6 +278,12 @@ python dependencies/IsaacLab/scripts/tools/convert_mesh.py data/ur_cube/cube_mes
 CUDA_VISIBLE_DEVICES=1 python scripts/ur_cube/make_model_stack_figure.py --part splats    # data-gen venv (gsplat)
 CUDA_VISIBLE_DEVICES=1 python scripts/ur_cube/make_model_stack_figure.py --part meshes    # SuGaR env (pytorch3d)
 python scripts/ur_cube/make_model_stack_figure.py --part grid
+# The pipeline video on the project page (frames, then three encodes: wide, tall, homepage teaser)
+python scripts/ur_cube/make_pipeline_renders.py --part colmap                              # data-gen venv
+CUDA_VISIBLE_DEVICES=1 python scripts/ur_cube/make_pipeline_renders.py --part splats       # data-gen venv (gsplat)
+CUDA_VISIBLE_DEVICES=1 python scripts/ur_cube/make_pipeline_renders.py --part meshes       # SuGaR env (pytorch3d)
+python scripts/ur_cube/make_splat_orbit.py --output outputs/ur_cube/media/pipeline_video/splat_orbit.mp4 --no-labels
+for l in wide tall teaser; do python scripts/ur_cube/make_pipeline_video.py --layout $l; done
 ```
 
 ## References

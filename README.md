@@ -16,6 +16,10 @@ An obstacle-repair step adds detours when a new object blocks the demonstrated p
 This is a real-to-sim data pipeline motivated by sim-to-real learning. The reported policy
 experiments run in a rendered, kinematic twin.
 
+**[Watch the whole pipeline in 80 seconds](https://ur10.github.io/projects/real2render2real/#r2-pipeline)**:
+every stage from the phone video to the trained policy, with the model used and the numbers it
+produced, for all three tasks.
+
 My contributions include bench calibration, object tracking, UR5e integration, and trajectory
 repair around added obstacles. The pipeline covers cube transfer, hanging a tape roll on a
 mug tree, and placing a nut on a bolt.
@@ -54,7 +58,7 @@ same frame, and the UR5e replay rendered in IsaacLab from the same calibrated ca
 
 ![Randomized rollouts generated from the one demonstration](docs/randomized.jpg)
 
-### The model stack: phone video to simulation asset
+### The model stack: phone video to simulation assets
 
 ![The cube from phone video to simulation asset](docs/model_stack.jpg)
 
@@ -63,8 +67,11 @@ COLMAP poses the frames, splatfacto fits a 450k-Gaussian splat, GARField (SAM ma
 (DINOv2 features) make the cube selectable, and SuGaR turns its Gaussians into a mesh, which
 becomes the ICP template and the IsaacLab cube. GARField could not separate the cube from its
 fixture, so the selection is cut in the robot base frame (724 → 493 Gaussians) before SuGaR.
-**[docs/model_stack.md](docs/model_stack.md)** documents each model, what it produced here, where
-it failed, and where its output lands in a training sample.
+The tape roll and nut were recorded in colour only and never scanned, so they skip that chain:
+each is a measured ring fitted to its colour outline in both calibrated views, and the same fit,
+run frame by frame, tracks it.
+**[docs/model_stack.md](docs/model_stack.md)** documents each model and each task, what it produced
+here, where it failed, and where its output lands in a training sample.
 
 ### Why the tracker is different from the paper
 
